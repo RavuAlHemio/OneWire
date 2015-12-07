@@ -3,7 +3,7 @@
     /// <summary>
     /// The communication rate of a 1-Wire Net.
     /// </summary>
-    public enum NetSpeed
+    public enum NetSpeed : byte
     {
         /// <summary>
         /// Normal rate (16 kb/s).

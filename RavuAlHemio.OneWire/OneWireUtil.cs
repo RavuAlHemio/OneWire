@@ -1,7 +1,11 @@
 ﻿using System;
+using RavuAlHemio.OneWire.Driver;
 
 namespace RavuAlHemio.OneWire
 {
+    /// <summary>
+    /// 1-Wire Protocol utilities.
+    /// </summary>
     public static class OneWireUtil
     {
         /// <summary>
@@ -31,4 +35,3 @@ namespace RavuAlHemio.OneWire
         }
     }
 }
-

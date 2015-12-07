@@ -3,7 +3,7 @@
     /// <summary>
     /// The line level of a 1-Wire Net.
     /// </summary>
-    public enum LineLevel
+    public enum LineLevel : byte
     {
         /// <summary>
         /// The normal line level of a 1-Wire Net (5V, weak pull-up).

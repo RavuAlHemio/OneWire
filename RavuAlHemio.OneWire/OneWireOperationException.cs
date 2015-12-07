@@ -1,4 +1,5 @@
 ﻿using System;
+using RavuAlHemio.OneWire.Driver;
 
 namespace RavuAlHemio.OneWire
 {
@@ -8,12 +9,12 @@ namespace RavuAlHemio.OneWire
         public int OneWireErrorCode { get; }
         public string OneWireErrorMessage { get; }
 
-        public static OneWireOperationException Create(string operation, IOneWireLink link,
+        public static OneWireOperationException Create(string operation, IOneWireErrors oneWireErrors,
             Exception innerException = null)
         {
-            int errCode = link.PopErrorNumber();
+            int errCode = oneWireErrors.PopErrorNumber();
             string errMsg = ErrorMessages.Get(errCode);
-            string message = string.Format("{0}: [{1}] {2}", operation, errCode, errMsg);
+            string message = $"{operation}: [{errCode}] {errMsg}";
             return new OneWireOperationException(message, operation, errCode, errMsg, innerException);
         }
 
