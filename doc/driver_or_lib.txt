@@ -1,0 +1,99 @@
+This file documents whether a 1-Wire Public Domain Kit function is a driver function (different for each method of
+access) or a library function (shared by all drivers).
+
+D  driver function (lib/)
+L  library function (common/)
+S  driver function (lib/) whose implementation is shared by all drivers (move to library)
+C  driver function (lib/) whose implementation is shared by all drivers but called by at least one driver function
+   (don't move to library)
+
+
+Link-Level
+----------
+D  owTouchReset
+D  owTouchBit
+D  owTouchByte
+C  owWriteByte
+S  owReadByte
+D  owSpeed
+D  owLevel
+D  owProgramPulse
+D  owWriteBytePower
+D  owReadBytePower
+D  owReadBitPower
+D  owHasPowerDelivery
+D  owHasOverDrive
+D  owHasProgramPulse
+
+Network-Level
+-------------
+D  owFirst
+D  owNext
+D  owSerialNum
+D  owFamilySearchSetup
+D  owSkipFamily
+S  owAccess
+S  owVerify
+S  owOverdriveAccess
+
+Transport-Level
+---------------
+D  owBlock
+L  owRead
+L  owWrite
+L  owReadPage
+L  owReadPageExtra
+L  owReadPageExtraCRC
+L  owReadPageCRC
+L  owReadPagePacket
+L  owReadPagePacketExtra
+L  owWritePagePacket
+L  owGetNumberBanks
+L  owGetNumberPages
+L  owGetSize
+L  owGetPageLength
+L  owGetStartingAddress
+L  owGetBankDescription
+L  owGetName
+L  owGetAlternateName
+L  owGetDescription
+L  owIsGeneralPurposeMemory
+L  owIsReadWrite
+L  owIsWriteOnce
+L  owIsReadOnly
+L  owIsNonvolatile
+L  owNeedsProgramPulse
+L  owNeedsPowerDelivery
+L  owHasExtraInfo
+L  owGetExtraInfoLength
+L  owGetExtraInfoDesc
+L  owGetMaxPacketDataLength
+L  owHasPageAutoCRC
+L  owRedirectPage
+L  owCanLockPage
+L  owCanLockRedirectPage
+S  owProgramByte
+
+File-Level
+----------
+L  owFormat
+L  owCreateFile
+L  owCloseFile
+L  owWriteFile
+L  owCreateDir
+L  owRemoveDir
+L  owDeleteFile
+L  owAttribute
+L  owReNameFile
+L  owReadFile
+L  owOpenFile
+L  owFirstFile
+L  owNextFile
+L  owGetCurrentDir
+L  owChangeDirectory
+
+Session-Level
+-------------
+D  owAcquire
+D  owAcquireEx
+D  owRelease
