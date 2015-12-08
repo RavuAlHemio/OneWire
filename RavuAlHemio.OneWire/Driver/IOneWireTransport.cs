@@ -22,6 +22,7 @@ namespace RavuAlHemio.OneWire.Driver
         [CanBeNull]
         byte[] TransferBlock(int portNumber, bool resetFirst, [NotNull] IList<byte> bytes);
 
+        /*
         /// <summary>
         /// Write a byte to an EPROM 1-Wire device.
         /// </summary>
@@ -40,5 +41,6 @@ namespace RavuAlHemio.OneWire.Driver
         /// </returns>
         byte ProgramByte(int portNumber, byte writeByte, ushort address, byte writeCommand, CRCType crcType,
             bool selectAddressFirst);
+        */
     }
 }

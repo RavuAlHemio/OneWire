@@ -13,6 +13,17 @@ namespace RavuAlHemio.OneWire
             Exception innerException = null)
         {
             int errCode = oneWireErrors.PopErrorNumber();
+            return Create(operation, errCode, innerException);
+        }
+
+        public static OneWireOperationException Create(string operation, ErrorCode errCode, Exception innerException = null)
+        {
+            int errCodeInt = (int)errCode;
+            return Create(operation, errCodeInt, innerException);
+        }
+
+        public static OneWireOperationException Create(string operation, int errCode, Exception innerException = null)
+        {
             string errMsg = ErrorMessages.Get(errCode);
             string message = $"{operation}: [{errCode}] {errMsg}";
             return new OneWireOperationException(message, operation, errCode, errMsg, innerException);

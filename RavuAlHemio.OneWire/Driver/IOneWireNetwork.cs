@@ -64,45 +64,5 @@
         /// </summary>
         /// <param name="portNumber">Indicates the symbolic port number.</param>
         void SkipFamily(int portNumber);
-
-        /// <summary>
-        /// Reset the 1-Wire Net and send a MATCH Serial Number command containing the current serial number (see
-        /// <see cref="GetSerialNumber"/> and <see cref="SetSerialNumber"/>), whereupon the device with that serial
-        /// number is ready to receive commands.
-        /// </summary>
-        /// <param name="portNumber">Indicates the symbolic port number.</param>
-        /// <returns>
-        /// <c>true</c> if the device with the active serial number has been found and is ready for commands;
-        /// <c>false</c> otherwise.
-        /// </returns>
-        bool AccessDevice(int portNumber);
-
-        /// <summary>
-        /// Returns whether the currently active device is in contact with the 1-Wire Net.
-        /// </summary>
-        /// <remarks>
-        /// The currently active device can be changed using <see cref="SetSerialNumber"/>.
-        /// </remarks>
-        /// <param name="portNumber">Indicates the symbolic port number.</param>
-        /// <param name="alarmOnly">If <c>true</c>, it is also checked whether the device is in an alarm state.</param>
-        /// <returns>
-        /// If <paramref name="alarmOnly"/> is <c>false</c>, returns <c>true</c> if the currently active device is in
-        /// contact with the 1-Wire Net, and <c>false</c> otherwise. If <paramref name="alarmOnly"/> is true, returns
-        /// <c>true</c> if the currently active device is in contact with the 1-Wire Net and is in an alarm state, and
-        /// <c>false</c> otherwise.
-        /// </returns>
-        bool VerifyDevice(int portNumber, bool alarmOnly);
-
-        /// <summary>
-        /// Reset the 1-Wire Net and send an overdrive MATCH Serial Number command containing the current serial number
-        /// (see <see cref="GetSerialNumber"/> and <see cref="SetSerialNumber"/>), whereupon the device with that
-        /// serial number is ready to receive commands.
-        /// </summary>
-        /// <param name="portNumber">Indicates the symbolic port number.</param>
-        /// <returns>
-        /// <c>true</c> if the device with the active serial number has been found and is ready for commands;
-        /// <c>false</c> otherwise.
-        /// </returns>
-        bool OverdriveAccessDevice(int portNumber);
     }
 }

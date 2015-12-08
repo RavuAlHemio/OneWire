@@ -4,7 +4,7 @@ namespace RavuAlHemio.OneWire
 {
     internal static class ErrorMessages
     {
-        private static string[] _errorMessages =
+        private static readonly string[] _errorMessages =
         {
             /*000*/ "No Error Was Set",
             /*001*/ "No Devices found on 1-Wire Network",

@@ -35,6 +35,17 @@ namespace RavuAlHemio.OneWire.Driver
         byte TouchByte(int portNumber, byte byteToSend);
 
         /// <summary>
+        /// Send 8 bits of communication to the 1-Wire Net, read the resulting 8 bits and return whether the sent and
+        /// received bytes were equal.
+        /// </summary>
+        /// <param name="byteToSend">The byte to send to the 1-Wire Net.</param>
+        /// <returns>
+        /// <c>true</c> if the byte read from the 1-Wire Net equalled the sent byte (<paramref name="byteToSend"/>);
+        /// <c>false</c> if it did not.
+        /// </returns>
+        bool WriteByte(byte byteToSend);
+
+        /// <summary>
         /// Sets the communication rate of the 1-Wire Net.
         /// </summary>
         /// <param name="portNumber">Indicates the symbolic port number.</param>
@@ -63,16 +74,24 @@ namespace RavuAlHemio.OneWire.Driver
         bool ProgramPulse(int portNumber);
 
         /// <summary>
-        /// Send 8 bits of communication to the 1-Wire Net, change the level of the 1-Wire Net to power delivery, and
-        /// return the resulting 8 bits read from the 1-Wire Net.
+        /// Send 8 bits of communication to the 1-Wire Net, read the resulting 8 bits, change the level of the 1-Wire
+        /// Net to power delivery, and return whether the sent and received bytes were equal and the power level change
+        /// succeeded.
         /// </summary>
-        /// <param name="portNumber">Indicates the symbolic port number.</param>
         /// <param name="byteToSend">The byte to send to the 1-Wire Net.</param>
         /// <returns>
-        /// The byte read from the 1-Wire Net after the <paramref name="byteToSend"/> was sent and the power level has
-        /// been changed.
+        /// <c>true</c> if the byte read from the 1-Wire Net equalled the sent byte (<paramref name="byteToSend"/>) and
+        /// the power level change succeeded; <c>false</c> if the bytes differed or the power level change failed (or
+        /// both).
         /// </returns>
-        byte TouchByteAndSetPower(int portNumber, byte byteToSend);
+        bool WriteByteAndSetPower(byte byteToSend);
+
+        /// <summary>
+        /// Receive and return 8 bits of communication from the 1-Wire Net by writing the value <c>0xFF</c> and reading
+        /// the response, then change the level of the 1-Wire Net to power delivery.
+        /// </summary>
+        /// <returns>The byte read from the 1-Wire Net (after sending <c>0xFF</c>).</returns>
+        byte ReadByteAndSetPower();
 
         /// <summary>
         /// Read 1 bit of communication from the 1-Wire Net, verify that it matches the argument, and change the level
