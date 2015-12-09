@@ -80,12 +80,8 @@ namespace RavuAlHemio.OneWire.Layer
             // match Serial Number command 0x55
             cmd.Add(0x55);
 
-            // add the serial number (Little Endian)
-            ulong serial = SerialNumber;
-            for (int i = 0; i < 8; ++i)
-            {
-                cmd.Add((byte)((serial >> i) & 0xFF));
-            }
+            // add the serial number
+            cmd.AddRange(OneWireUtil.SerialNumberToByteArray(SerialNumber));
 
             // send!
             byte[] received = Port.Transport.TransferBlock(false, cmd);
@@ -138,6 +134,8 @@ namespace RavuAlHemio.OneWire.Layer
                 // search
                 cmd.Add(0xF0);
             }
+
+            // 1-Wire Search Algorithm: see Maxim Application Note 187
 
             // encode the serial number SSSS... as 11S11S11S11S...
             // a 64-bit serial number requires 192 bits (24 bytes)
@@ -213,12 +211,58 @@ namespace RavuAlHemio.OneWire.Layer
         /// </returns>
         public virtual bool OverdriveAccessDevice()
         {
-            // TODO
-            throw new NotImplementedException();
-
             // set power level and comm speed to normal
             Port.Link.SetLineLevel(LineLevel.Normal);
             Port.Link.SetPortSpeed(NetSpeed.Normal);
+
+            // reset the 1-Wire Net
+            if (!Port.Link.TouchReset())
+            {
+                throw OneWireOperationException.Create(
+                    "error accessing device at overdrive speed",
+                    ErrorCode.NoDevicesOnNet
+                );
+            }
+
+            // send the match command 0x69
+            if (!Port.Link.WriteByte(0x69))
+            {
+                throw OneWireOperationException.Create(
+                    "error accessing device at overdrive speed",
+                    ErrorCode.WriteByteFailed
+                );
+            }
+
+            // switch to overdrive communication speed
+            Port.Link.SetPortSpeed(NetSpeed.Overdrive);
+
+            // add the serial number
+            byte[] serialNumberBytes = OneWireUtil.SerialNumberToByteArray(SerialNumber);
+
+            // send and receive
+            byte[] receivedBytes = Port.Transport.TransferBlock(false, serialNumberBytes);
+            if (receivedBytes == null)
+            {
+                Port.Link.SetPortSpeed(NetSpeed.Normal);
+                throw OneWireOperationException.Create(
+                    "error accessing device at overdrive speed",
+                    ErrorCode.BlockFailed
+                );
+            }
+
+            // verify if the received serial number is the same as the sent one
+            if (serialNumberBytes.SequenceEqual(receivedBytes))
+            {
+                return true;
+            }
+
+            // failure; return back to normal speed
+            Port.Link.SetPortSpeed(NetSpeed.Normal);
+
+            throw OneWireOperationException.Create(
+                "error accessing device at overdrive speed",
+                ErrorCode.WriteVerifyFailed
+            );
         }
 
         #region disposal logic
