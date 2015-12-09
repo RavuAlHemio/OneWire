@@ -141,45 +141,85 @@ namespace RavuAlHemio.OneWire.Layer
 
             // encode the serial number SSSS... as 11S11S11S11S...
             // a 64-bit serial number requires 192 bits (24 bytes)
-            for (int bytei = 0; bytei < 8; ++bytei)
-            {
-                byte cmdByte = 0;
-
-            }
-
-            // set all bytes by default
-            for (int i = 0; i < 24; ++i)
-            {
-                cmd.Add(0xFF);
-            }
-
-            // TODO
-            throw new NotImplementedException();
-
-            /*
+            ulong serial = SerialNumber;
+            var serialBits = new BitStringBuffer(192);
             for (int i = 0; i < 64; ++i)
             {
-                cmdSerialBit[(i + 1) * 3 - 1] = serialBit[i];
+                serialBits[3*i + 0] = true;
+                serialBits[3*i + 1] = true;
+                serialBits[3*i + 2] = (((serial >> i) & 0x1) == 0x1);
             }
 
-            cmdSerialBit[2] = serialBit[0];
-            cmdSerialBit[5] = serialBit[1];
-            cmdSerialBit[8] = serialBit[2];
-            cmdSerialBit[11] = serialBit[3];
-            */
+            // add that to the command
+            cmd.AddRange(serialBits.Buffer);
+
+            // transfer it
+            var blockResponse = Port.Transport.TransferBlock(true, cmd);
+            if (blockResponse == null)
+            {
+                throw OneWireOperationException.Create(
+                    "error verifying device presence",
+                    ErrorCode.BlockFailed
+                );
+            }
+
+            // check the results
+            var serialResponseBits = new BitStringBuffer(192);
+            for (int i = 0; i < 64; ++i)
+            {
+                serialResponseBits.Buffer[i] = blockResponse[i+1];
+            }
+
+            int goodBits = 0;
+            for (int i = 0; i < 64; ++i)
+            {
+                bool responseTopBit = serialResponseBits[3*i];
+                bool responseBottomBit = serialResponseBits[3*i + 1];
+
+                bool serialBit = serialBits[3*i + 2];
+
+                if (responseTopBit && responseBottomBit)
+                {
+                    // no device on line
+                    goodBits = 0;
+                    break;
+                }
+
+                if ((serialBit && responseTopBit && !responseBottomBit) ||
+                    (!serialBit && !responseTopBit && responseBottomBit))
+                {
+                    // correct bit
+                    ++goodBits;
+                }
+            }
+
+            if (goodBits > 8)
+            {
+                // enough to be successful
+                return true;
+            }
+
+            // not good enough
+            return false;
         }
 
         /// <summary>
         /// Reset the 1-Wire Net and send an overdrive MATCH Serial Number command containing the current serial number
-        /// (see <see cref="GetSerialNumber"/> and <see cref="SetSerialNumber"/>), whereupon the device with that
-        /// serial number is ready to receive commands.
+        /// (<see cref="SerialNumber"/>), whereupon the device with that serial number is ready to receive commands.
         /// </summary>
-        /// <param name="portNumber">Indicates the symbolic port number.</param>
         /// <returns>
         /// <c>true</c> if the device with the active serial number has been found and is ready for commands;
         /// <c>false</c> otherwise.
         /// </returns>
-        //bool OverdriveAccessDevice(int portNumber);
+        public virtual bool OverdriveAccessDevice()
+        {
+            // TODO
+            throw new NotImplementedException();
+
+            // set power level and comm speed to normal
+            Port.Link.SetLineLevel(LineLevel.Normal);
+            Port.Link.SetPortSpeed(NetSpeed.Normal);
+        }
 
         #region disposal logic
         protected virtual void Dispose(bool disposing)
