@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using JetBrains.Annotations;
 using RavuAlHemio.OneWire.Driver;
 
@@ -49,9 +50,15 @@ namespace RavuAlHemio.OneWire.Layer
 
                     if (bank > 0)
                     {
-                        return ReadEEPROM(bank, serialNumber, startAddress, continuedRead, readLength);
+                        return GenericRead(
+                            "EEPROM", (b, f) => 32, 0xF0, 1, false, false,
+                            bank, serialNumber, startAddress, continuedRead, readLength
+                        );
                     }
-                    return ReadApplicationRegister(bank, serialNumber, startAddress, continuedRead, readLength);
+                    return GenericRead(
+                        "application register", (b, f) => 8, 0xC3, 1, false, false,
+                        bank, serialNumber, startAddress, continuedRead, readLength
+                    );
 
                 case 0x04:
                 case 0x06:
@@ -60,28 +67,57 @@ namespace RavuAlHemio.OneWire.Layer
                 case 0x0C:
                 case 0x23:
                     // Non-Volatile Memory Bank, Scratchpad Memory Bank
-                case 0x18:
-                    // Non-Volatile Memory Bank, Scratchpad SHA Memory Bank
                 case 0x1A:
                 case 0x1D:
                     // Non-Volatile Cyclic Redundancy Check Memory Bank, Scratchpad Ex(???) Memory Bank
+
+                    if (bank > 0)
+                    {
+                        return GenericRead(
+                            "non-volatile memory", GetNonVolatileMemorySize, 0xF0, 2, true, false,
+                            bank, serialNumber, startAddress, continuedRead, readLength
+                        );
+                    }
+                    byte[] fullScratchpad = GenericRead(
+                        "scratchpad", GetScratchMemorySize, 0xAA, 3, false, false,
+                        bank, serialNumber, 0xFFFFFF, false, startAddress + readLength
+                    );
+                    return fullScratchpad.Skip(startAddress).ToArray();
+
+                case 0x18:
+                    // Non-Volatile Memory Bank, Scratchpad SHA Memory Bank
                 case 0x21:
                     // Non-Volatile Cyclic Redundancy Check Memory Bank, Scratchpad Cyclic Redundancy Check Memory Bank
 
                     if (bank > 0)
                     {
-                        return ReadNonVolatileMemory(bank, serialNumber, startAddress, continuedRead, readLength);
+                        return GenericRead(
+                            "non-volatile memory", GetNonVolatileMemorySize, 0xF0, 2, true, false,
+                            bank, serialNumber, startAddress, continuedRead, readLength
+                        );
                     }
-                    return ReadScratchpad(bank, serialNumber, startAddress, continuedRead, readLength);
+                    byte[] fullScratchpadExtra = GenericRead(
+                        "scratchpad with SHA or CRC", GetNonVolatileMemorySize, 0xAA, 3, false, true,
+                        bank, serialNumber, 0xFFFFFF, false, readLength
+                    );
+                    // TODO: extract extra data
+                    // TODO: trim and verify CRC
+                    throw new NotImplementedException();
 
                 case 0x33:
                 case 0xB3:
                     // SHA EEPROM Memory Bank
-                    return ReadSHAEEPROM(bank, serialNumber, startAddress, continuedRead, readLength);
+                    return GenericRead(
+                        "SHA EEPROM", GetSHAEEPROMSize, 0xF0, 2, true, false,
+                        bank, serialNumber, startAddress + GetSHAEEStartingAddress(bank, serialNumber), continuedRead, readLength
+                    );
 
                 case 0x2D:
                     // EEPROM with Write Protection Memory Bank
-                    return ReadEEPROMWriteProtected(bank, serialNumber, startAddress, continuedRead, readLength);
+                    return GenericRead(
+                        "EEPROM with write protection", GetEEPROMWithWriteProtectionSize, 0xF0, 2, true, false,
+                        bank, serialNumber, startAddress + GetEEPROMWithWriteProtectionStartingAddress(bank, serialNumber), continuedRead, readLength
+                    );
 
                 case 0x09:
                 case 0x0B:
@@ -103,6 +139,161 @@ namespace RavuAlHemio.OneWire.Layer
                     byte[] extra;
                     return ReadScratchpadCRC77(serialNumber, readLength, out extra);
             }
+        }
+
+        protected virtual byte[] GenericRead(
+            string memoryTypeDescription,
+            Func<byte, ulong, int> bankAndFamilyToMaxSize,
+            byte readCommand,
+            int addressByteCount,
+            bool allowContinuedRead,
+            bool returnAddressResponseToo,
+
+            byte bank,
+            ulong serialNumber,
+            int startAddress,
+            bool continuedRead,
+            int readLength
+        )
+        {
+            if (addressByteCount < 1)
+            {
+                throw new ArgumentOutOfRangeException(nameof(addressByteCount));
+            }
+
+            var operation = $"reading {memoryTypeDescription}";
+
+            if (startAddress + readLength > bankAndFamilyToMaxSize(bank, (byte)(serialNumber & 0xFF)))
+            {
+                throw OneWireOperationException.Create(
+                    operation,
+                    ErrorCode.ReadOutOfRange
+                );
+            }
+
+            var ret = new List<byte>(readLength);
+
+            if (!allowContinuedRead || !continuedRead || returnAddressDataToo)
+            {
+                Port.Network.SerialNumber = serialNumber;
+
+                if (!Port.Network.AccessDevice())
+                {
+                    throw OneWireOperationException.Create(
+                        operation,
+                        ErrorCode.DeviceSelectFail
+                    );
+                }
+
+                var addrSendBuf = new byte[addressByteCount + 1];
+                addrSendBuf[0] = readCommand;
+                addrSendBuf[1] = (byte) (startAddress & 0xFF);
+                if (addressByteCount > 1)
+                {
+                    addrSendBuf[2] = (byte) ((startAddress >> 8) & 0xFF);
+                }
+                if (addressByteCount > 2)
+                {
+                    addrSendBuf[3] = (byte) ((startAddress >> 16) & 0xFF);
+                }
+                if (addressByteCount > 3)
+                {
+                    addrSendBuf[4] = (byte) ((startAddress >> 24) & 0xFF);
+                }
+
+                byte[] addrRecvBuf = TransferBlock(false, addrSendBuf);
+                if (addrRecvBuf == null)
+                {
+                    throw OneWireOperationException.Create(
+                        operation,
+                        ErrorCode.BlockFailed
+                    );
+                }
+
+                ret.Capacity = readLength + addressByteCount;
+                ret.AddRange(addrSendBuf.Skip(1));
+            }
+
+            byte[] readRequestBuf = Enumerable.Repeat((byte)0xFF, readLength).ToArray();
+            byte[] readBuf = TransferBlock(false, readRequestBuf);
+            if (readBuf == null)
+            {
+                throw OneWireOperationException.Create(
+                    operation,
+                    ErrorCode.BlockFailed
+                );
+            }
+
+            ret.AddRange(readBuf);
+            return ret.ToArray();
+        }
+
+        [Pure]
+        protected static byte SerialToFamilyNumber(ulong serialNumber)
+        {
+            return (byte) (serialNumber & 0x7F);
+        }
+
+        protected virtual int GetNonVolatileMemorySize(byte bank, ulong serialNumber)
+        {
+            byte familyNumber = SerialToFamilyNumber(serialNumber);
+            switch (familyNumber)
+            {
+                // TODO
+                default:
+                    throw new NotImplementedException();
+            }
+        }
+
+        protected virtual int GetScratchMemorySize(byte bank, ulong serialNumber)
+        {
+            byte familyNumber = SerialToFamilyNumber(serialNumber);
+            switch (familyNumber)
+            {
+                // TODO
+                default:
+                    throw new NotImplementedException();
+            }
+        }
+
+        protected virtual int GetSHAEEPROMSize(byte bank, ulong serialNumber)
+        {
+            // pageLength * getNumeberPagesSHAEE(bank, SNum[0])
+            const int pageLength = 32;
+
+            byte familyNumber = SerialToFamilyNumber(serialNumber);
+            switch (familyNumber)
+            {
+                // TODO
+                default:
+                    throw new NotImplementedException();
+            }
+        }
+
+        protected virtual int GetSHAEEStartingAddress(byte bank, ulong serialNumber)
+        {
+            // TODO
+            throw new NotImplementedException();
+        }
+
+        protected virtual int GetEEPROMWithWriteProtectionSize(byte bank, ulong serialNumber)
+        {
+            // pageLength * getNumeberPagesSHAEE(bank, SNum[0])
+            const int pageLength = 32;
+
+            byte familyNumber = SerialToFamilyNumber(serialNumber);
+            switch (familyNumber)
+            {
+                // TODO
+                default:
+                    throw new NotImplementedException();
+            }
+        }
+
+        protected virtual int GetEEPROMWithWriteProtectionStartingAddress(byte bank, ulong serialNumber)
+        {
+            // TODO
+            throw new NotImplementedException();
         }
 
         #region disposal logic
