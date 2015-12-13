@@ -125,7 +125,8 @@ namespace RavuAlHemio.OneWire.Layer
                 case 0x12:
                 case 0x13:
                     // EPROM Memory Bank
-                    return ReadEPROM(bank, serialNumber, startAddress, continuedRead, readLength);
+                    throw new NotImplementedException();
+                    //return ReadEPROM(bank, serialNumber, startAddress, continuedRead, readLength);
 
                 case 0x37:
                 case 0x77:
@@ -133,12 +134,17 @@ namespace RavuAlHemio.OneWire.Layer
 
                     if (bank > 0)
                     {
-                        return ReadEEPROMPasswordProtected(bank, serialNumber, startAddress, continuedRead, readLength);
+                        throw new NotImplementedException();
+                        //return ReadEEPROMPasswordProtected(bank, serialNumber, startAddress, continuedRead, readLength);
                     }
 
                     byte[] extra;
-                    return ReadScratchpadCRC77(serialNumber, readLength, out extra);
+                    throw new NotImplementedException();
+                    //return ReadScratchpadCRC77(serialNumber, readLength, out extra);
             }
+
+            // unknown value
+            throw new NotImplementedException(string.Format("unknown device class 0x{0:X2}", deviceClass));
         }
 
         protected virtual byte[] GenericRead(
@@ -173,7 +179,7 @@ namespace RavuAlHemio.OneWire.Layer
 
             var ret = new List<byte>(readLength);
 
-            if (!allowContinuedRead || !continuedRead || returnAddressDataToo)
+            if (!allowContinuedRead || !continuedRead || returnAddressResponseToo)
             {
                 Port.Network.SerialNumber = serialNumber;
 

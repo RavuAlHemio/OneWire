@@ -49,6 +49,8 @@
     <Compile Include="ErrorCode.cs" />
     <Compile Include="Layer\TransportLayer.cs" />
     <Compile Include="BitStringBuffer.cs" />
+    <Compile Include="Crc16.cs" />
+    <Compile Include="Crc8.cs" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="JetBrains.Annotations.PCL328, Version=10.0.0.0, Culture=neutral, PublicKeyToken=1010a0d8d6380325">
