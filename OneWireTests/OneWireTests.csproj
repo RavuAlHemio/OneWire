@@ -43,6 +43,7 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="CRCTests.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="OneWireAddressTests.cs" />
   </ItemGroup>

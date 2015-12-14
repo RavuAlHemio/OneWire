@@ -26,11 +26,11 @@ namespace RavuAlHemio.OneWire.Utils
         /// <returns>The CRC16 calculated from <paramref name="data"/> and optionally <paramref name="seed"/>.</returns>
         public static ushort Compute(byte data, ushort seed = 0x0000)
         {
-            var dat = (byte)((data ^ (seed & 0xFF)) & 0xFF);
+            var dat = (ushort)((data ^ (seed & 0xFF)) & 0xFF);
 
             seed = (ushort)((seed & 0xFFFF) >> 8);
 
-            int index1 = (dat%0x0F);
+            int index1 = (dat & 0x0F);
             int index2 = (dat >> 4);
 
             if ((oddParity[index1] ^ oddParity[index2]) == 1)
