@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using JetBrains.Annotations;
+using RavuAlHemio.OneWire.Utils;
 
 namespace RavuAlHemio.OneWire
 {
@@ -36,6 +37,11 @@ namespace RavuAlHemio.OneWire
                 throw new ArgumentOutOfRangeException(nameof(address), nameof(address) + " must be exactly 8 bytes long");
             }
             _address = addressArray;
+
+            if (!IsValid)
+            {
+                throw new ArgumentException(nameof(address) + " is not a valid 1-Wire address", nameof(address));
+            }
         }
 
         /// <summary>
@@ -48,9 +54,14 @@ namespace RavuAlHemio.OneWire
             var addressBytes = new byte[8];
             for (int i = 0; i < 8; ++i)
             {
-                addressBytes[i] = (byte)((address >> (8*i)) & 0xFF);
+                addressBytes[i] = (byte)((addressUL >> (8*i)) & 0xFF);
             }
             _address = addressBytes;
+
+            if (!IsValid)
+            {
+                throw new ArgumentException(nameof(address) + " is not a valid 1-Wire address", nameof(address));
+            }
         }
 
         /// <summary>
@@ -59,14 +70,24 @@ namespace RavuAlHemio.OneWire
         /// <param name="address">The address as a big-endian hexadecimal string.</param>
         public OneWireAddress(string address)
         {
+            if (address.Length != 16)
+            {
+                throw new ArgumentOutOfRangeException(nameof(address), nameof(address) + " must be 16 characters long");
+            }
+
             var addressBytes = new byte[8];
             for (int i = 0; i < 8; ++i)
             {
-                byte top = Utils.Hex.CharToNibble(address[2*i]);
-                byte bottom = Utils.Hex.CharToNibble(address[2*i + 1]);
+                byte top = Hex.CharToNibble(address[2*i]);
+                byte bottom = Hex.CharToNibble(address[2*i + 1]);
                 addressBytes[7 - i] = (byte)((top << 4) | bottom);
             }
             _address = addressBytes;
+
+            if (!IsValid)
+            {
+                throw new ArgumentException(nameof(address) + " is not a valid 1-Wire address", nameof(address));
+            }
         }
 
         /// <summary>
@@ -118,6 +139,48 @@ namespace RavuAlHemio.OneWire
 
                 return _address[idx];
             }
+        }
+
+        private bool IsValid
+        {
+            get
+            {
+                if (_address[0] != 0 && CRC8.Compute(_address) == 0x00)
+                {
+                    return true;
+                }
+
+                if ((_address[0] & 0x7F) == 0x1C)
+                {
+                    // The DS28E04 has a pin-selectable ROM ID input. However, the CRC8 for the ROM ID assumes that the
+                    // selectable bits are all 1.
+                    var modifiedAddress = new List<byte>(_address);
+                    modifiedAddress[1] = 0x7F;
+                    return (CRC8.Compute(modifiedAddress) == 0);
+                }
+
+                return false;
+            }
+        }
+
+        public override int GetHashCode()
+        {
+            return ToLong().GetHashCode();
+        }
+
+        public override bool Equals(object obj)
+        {
+            return (obj is OneWireAddress) && (this == (OneWireAddress) obj);
+        }
+
+        public static bool operator ==(OneWireAddress l, OneWireAddress r)
+        {
+            return l._address.SequenceEqual(r._address);
+        }
+
+        public static bool operator !=(OneWireAddress l, OneWireAddress r)
+        {
+            return !(l == r);
         }
     }
 }

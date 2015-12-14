@@ -119,5 +119,15 @@ namespace OneWireTests
             Assert.Equal(lAddr.GetHashCode(), sAddr.GetHashCode());
             Assert.Equal(lAddr.GetHashCode(), lAddr.GetHashCode());
         }
+
+        [Fact]
+        public void TestFromWrongLengthString()
+        {
+            const string longStr = "F300000014E92810F";
+            const string shortStr = "F300000014E9281";
+
+            Assert.Throws<ArgumentOutOfRangeException>(() => new OneWireAddress(longStr));
+            Assert.Throws<ArgumentOutOfRangeException>(() => new OneWireAddress(shortStr));
+        }
     }
 }

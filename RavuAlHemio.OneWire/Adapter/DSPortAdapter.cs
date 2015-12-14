@@ -188,7 +188,7 @@ namespace RavuAlHemio.OneWire.Adapter
         /// Dictionary to contain the user-replaced OneWireContainers.
         /// </summary>
         [NotNull]
-        private Dictionary<int, Type> _registeredOneWireContainerClasses = new Dictionary<int, Type>(5);
+        private readonly Dictionary<int, Type> _registeredOneWireContainerClasses = new Dictionary<int, Type>(5);
 
         /// <summary>
         /// Byte array of families to include in search.
@@ -588,107 +588,12 @@ namespace RavuAlHemio.OneWire.Adapter
         {
             if (!Select(address))
             {
-                throw new OneWireException("Device " + address.ToString() + " not present.");
+                throw new OneWireException("Device " + address + " not present.");
             }
         }
         #endif
 
         #if JAVACODE
-            /**
-    * Selects the specified iButton or 1-Wire device by broadcasting its
-    * address.  This operation is refered to a 'MATCH ROM' operation
-    * in the iButton and 1-Wire device data sheets.  This does not
-    * affect the 'current' device state information used in searches
-    * (findNextDevice...).
-    *
-    * In addition, this method asserts that the select did find some
-    * devices on the 1-Wire net.  If no devices were found, a OneWireException
-    * is thrown.
-    *
-    * Warning, this does not verify that the device is currently present
-    * on the 1-Wire Network (See isPresent).
-    *
-    * @param  address    address of iButton or 1-Wire device to select
-    *
-    * @throws OneWireIOException on a 1-Wire communication error, or if their
-    *         are no devices on the 1-Wire net.
-    * @throws OneWireException on a setup error with the 1-Wire adapter
-    *
-    * @see com.dalsemi.onewire.adapter.DSPortAdapter#isPresent(byte[])
-    * @see   com.dalsemi.onewire.utils.Address
-    */
-            public void assertSelect(byte[] address)
-            throws OneWireIOException, OneWireException
-            {
-                if(!select(address))
-                    throw new OneWireIOException("Device " + Address.toString(address)
-                        + " not present.");
-            }
-
-            /**
-    * Selects the specified iButton or 1-Wire device by broadcasting its
-    * address.  This operation is refered to a 'MATCH ROM' operation
-    * in the iButton and 1-Wire device data sheets.  This does not
-    * affect the 'current' device state information used in searches
-    * (findNextDevice...).
-    *
-    * In addition, this method asserts that the select did find some
-    * devices on the 1-Wire net.  If no devices were found, a OneWireException
-    * is thrown.
-    *
-    * Warning, this does not verify that the device is currently present
-    * on the 1-Wire Network (See isPresent).
-    *
-    * @param  address    address of iButton or 1-Wire device to select
-    *
-    * @return  <code>true</code> if device address was sent,<code>false</code>
-    * otherwise.
-    *
-    * @throws OneWireIOException on a 1-Wire communication error, or if their
-    *         are no devices on the 1-Wire net.
-    * @throws OneWireException on a setup error with the 1-Wire adapter
-    *
-    * @see com.dalsemi.onewire.adapter.DSPortAdapter#isPresent(byte[])
-    * @see   com.dalsemi.onewire.utils.Address
-    */
-            public void assertSelect(long address)
-            throws OneWireIOException, OneWireException
-            {
-                if(!select(Address.toByteArray(address)))
-                    throw new OneWireIOException("Device " + Address.toString(address)
-                        + " not present.");
-            }
-
-            /**
-    * Selects the specified iButton or 1-Wire device by broadcasting its
-    * address.  This operation is refered to a 'MATCH ROM' operation
-    * in the iButton and 1-Wire device data sheets.  This does not
-    * affect the 'current' device state information used in searches
-    * (findNextDevice...).
-    *
-    * In addition, this method asserts that the select did find some
-    * devices on the 1-Wire net.  If no devices were found, a OneWireException
-    * is thrown.
-    *
-    * Warning, this does not verify that the device is currently present
-    * on the 1-Wire Network (See isPresent).
-    *
-    * @param  address    address of iButton or 1-Wire device to select
-    *
-    * @throws OneWireIOException on a 1-Wire communication error, or if their
-    *         are no devices on the 1-Wire net.
-    * @throws OneWireException on a setup error with the 1-Wire adapter
-    *
-    * @see com.dalsemi.onewire.adapter.DSPortAdapter#isPresent(byte[])
-    * @see   com.dalsemi.onewire.utils.Address
-    */
-            public void assertSelect(String address)
-            throws OneWireIOException, OneWireException
-            {
-                if(!select(Address.toByteArray(address)))
-                    throw new OneWireIOException("Device " + address
-                        + " not present.");
-            }
 
             //--------
             //-------- Finding iButton/1-Wire device options
