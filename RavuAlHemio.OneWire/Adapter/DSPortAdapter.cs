@@ -27,8 +27,10 @@
 
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using JetBrains.Annotations;
 using RavuAlHemio.OneWire.Container;
+using RavuAlHemio.OneWire.Utils;
 
 namespace RavuAlHemio.OneWire.Adapter
 {
@@ -42,15 +44,15 @@ namespace RavuAlHemio.OneWire.Adapter
         /// <summary>
         /// Speed modes for 1-Wire Network.
         /// </summary>
-        public enum Speed : int
+        public enum NetworkSpeed : int
         {
             /// <summary>
-            /// Regular speed.
+            /// Normal communication speed.
             /// </summary>
             Regular = 0,
 
             /// <summary>
-            /// Flexible for long lines speed.
+            /// Flexible communication speed, useful for long lines.
             /// </summary>
             Flex = 1,
 
@@ -97,22 +99,23 @@ namespace RavuAlHemio.OneWire.Adapter
         public enum ResetResult : int
         {
             /// <summary>
-            /// No presence.
+            /// No devices are present on the 1-Wire Network.
             /// </summary>
             NoPresence = 0x00,
 
             /// <summary>
-            /// Presence.
+            /// Normal presence pulse detected on the 1-Wire Network; a device is present.
             /// </summary>
             Presence = 0x01,
 
             /// <summary>
-            /// Alarm.
+            /// Alarming presence pulse detected on the 1-Wire Network; a device in an alarm condition is present.
             /// </summary>
             Alarm = 0x02,
 
             /// <summary>
-            /// Short circuit.
+            /// The 1-Wire appears to be short-circuited. This can be a transient condition in a 1-Wire Network. Not
+            /// all adapter types can detect this condition.
             /// </summary>
             Short = 0x03
         }
@@ -123,17 +126,17 @@ namespace RavuAlHemio.OneWire.Adapter
         public enum PowerStateChangeCondition : int
         {
             /// <summary>
-            /// Immediate power state change.
+            /// Change the power state immediately.
             /// </summary>
             Now = 0,
 
             /// <summary>
-            /// Change after next bit communication.
+            /// Change the power state after the next bit is sent.
             /// </summary>
             AfterBit = 1,
                 
             /// <summary>
-            /// Change after next byte communication.
+            /// Change the power state after the next byte is sent.
             /// </summary>
             AfterByte = 2
         }
@@ -144,33 +147,51 @@ namespace RavuAlHemio.OneWire.Adapter
         public enum PowerDeliveryDuration : int
         {
             /// <summary>
-            /// 1/2 second power delivery.
+            /// Provide power for a 1/2 second.
             /// </summary>
+            /// <remarks>
+            /// Check using <see cref="SupportsLevel"/> with <see cref="Level.PowerDelivery"/>.
+            /// </remarks>
             HalfSecond = 0,
 
             /// <summary>
-            /// 1 second power delivery.
+            /// Provide power for 1 second.
             /// </summary>
+            /// <remarks>
+            /// Check using <see cref="SupportsLevel"/> with <see cref="Level.PowerDelivery"/>.
+            /// </remarks>
             OneSecond = 1,
 
             /// <summary>
-            /// 2 second power delivery.
+            /// Provide power for 2 seconds.
             /// </summary>
+            /// <remarks>
+            /// Check using <see cref="SupportsLevel"/> with <see cref="Level.PowerDelivery"/>.
+            /// </remarks>
             TwoSeconds = 2,
 
             /// <summary>
-            /// 4 second power delivery.
+            /// Provide power for 4 seconds.
             /// </summary>
+            /// <remarks>
+            /// Check using <see cref="SupportsLevel"/> with <see cref="Level.PowerDelivery"/>.
+            /// </remarks>
             FourSeconds = 3,
 
             /// <summary>
-            /// Smart complete power delivery.
+            /// Provide power until the device is no longer drawing significant power.
             /// </summary>
+            /// <remarks>
+            /// Check using <see cref="CanDeliverSmartPower"/>.
+            /// </remarks>
             SmartDone = 4,
 
             /// <summary>
-            /// Infinite power delivery.
+            /// Provide power until <see cref="SetPowerNormal()"/> is called.
             /// </summary>
+            /// <remarks>
+            /// Check using <see cref="SupportsLevel"/> with <see cref="Level.PowerDelivery"/>.
+            /// </remarks>
             Infinite = 5,
 
             /// <summary>
@@ -188,17 +209,17 @@ namespace RavuAlHemio.OneWire.Adapter
         /// Dictionary to contain the user-replaced OneWireContainers.
         /// </summary>
         [NotNull]
-        private readonly Dictionary<int, Type> _registeredOneWireContainerClasses = new Dictionary<int, Type>(5);
+        private readonly Dictionary<byte, Type> _registeredOneWireContainerClasses = new Dictionary<byte, Type>(5);
 
         /// <summary>
-        /// Byte array of families to include in search.
+        /// Families to include in search.
         /// </summary>
-        private byte[] _include;
+        private ISet<byte> _include;
 
         /// <summary>
-        /// Byte array of families to exclude from search.
+        /// Families to exclude from search.
         /// </summary>
-        private byte[] _exclude;
+        private ISet<byte> _exclude;
 
         /// <summary>
         /// The name of the port adapter as a string. The "Adapter" is a device that connects to a "port" that allows
@@ -248,7 +269,7 @@ namespace RavuAlHemio.OneWire.Adapter
         /// Thrown if <paramref name="oneWireContainerClass"/> does not extend
         /// <see cref="RavuAlHemio.OneWire.Container.OneWireContainer"/>.
         /// </exception>
-        public void RegisterOneWireContainerClass(int family, [CanBeNull] Type oneWireContainerClass)
+        public void RegisterOneWireContainerClass(byte family, [CanBeNull] Type oneWireContainerClass)
         {
             Type defaultIBC = typeof(OneWireContainer);
 
@@ -355,9 +376,9 @@ namespace RavuAlHemio.OneWire.Adapter
         /// </summary>
         /// <param name="speed">The speed whose support to check.</param>
         /// <returns><c>true</c> if the supplied speed is supported; <c>false</c> otherwise.</returns>
-        public virtual bool SupportsSpeed(Speed speed)
+        public virtual bool SupportsSpeed(NetworkSpeed speed)
         {
-            if (speed == Speed.Regular)
+            if (speed == NetworkSpeed.Regular)
             {
                 return true;
             }
@@ -393,15 +414,15 @@ namespace RavuAlHemio.OneWire.Adapter
             }
         }
 
-        #if HALF_IMPLEMENTED
+        //#if HALF_IMPLEMENTED
         /// <summary>
-        /// Returns an <see cref="IEnumerable`1"/> of <see cref="OneWireContainer"/> objects corresponding to all of the
-        /// iButtons or 1-Wire devices found on the 1-Wire Network. If no devices are found, then an empty enumerable
-        /// will be returned. In most cases, all further communication iwth the device is done through the
+        /// Returns an <see cref="IEnumerable{T}"/> of <see cref="OneWireContainer"/> objects corresponding to all of
+        /// the iButtons or 1-Wire devices found on the 1-Wire Network. If no devices are found, then an empty
+        /// enumerable will be returned. In most cases, all further communication iwth the device is done through the
         /// <see cref="OneWireContainer"/>.
         /// </summary>
         /// <returns>
-        /// <see cref="IEnumerable`1"/> of <see cref="OneWireContainer"/> objects found on the 1-Wire Network.
+        /// <see cref="IEnumerable{T}"/> of <see cref="OneWireContainer"/> objects found on the 1-Wire Network.
         /// </returns>
         /// <exception cref="OneWireIOException">Thrown on a 1-Wire communication error with the adapter.</exception>
         /// <exception cref="OneWireException">Thrown on a 1-Wire setup error with the adapter.</exception>
@@ -409,9 +430,8 @@ namespace RavuAlHemio.OneWire.Adapter
         public IEnumerable<OneWireContainer> GetAllDeviceContainers()
         {
             var ibuttonList = new List<OneWireContainer>();
-            OneWireContainer tempIButton;
 
-            tempIButton = GetFirstDeviceContainer();
+            OneWireContainer tempIButton = GetFirstDeviceContainer();
             if (tempIButton != null)
             {
                 ibuttonList.Add(tempIButton);
@@ -562,7 +582,7 @@ namespace RavuAlHemio.OneWire.Adapter
             {
                 sendPacket[i + 1] = address[i];
             }
-            DataBlock(sendPacket);
+            DataBlock(sendPacket, 0, sendPacket.Length);
 
             // success if any device present on 1-Wire Network
             return (resetStatus == ResetResult.Presence || resetStatus == ResetResult.Alarm);
@@ -591,814 +611,570 @@ namespace RavuAlHemio.OneWire.Adapter
                 throw new OneWireException("Device " + address + " not present.");
             }
         }
-        #endif
-
-        #if JAVACODE
-
-            //--------
-            //-------- Finding iButton/1-Wire device options
-            //--------
-
-            /**
-    * Sets the 1-Wire Network search to find only iButtons and 1-Wire
-    * devices that are in an 'Alarm' state that signals a need for
-    * attention.  Not all iButton types
-    * have this feature.  Some that do: DS1994, DS1920, DS2407.
-    * This selective searching can be canceled with the
-    * 'setSearchAllDevices()' method.
-    *
-    * @see #setNoResetSearch
-    */
-            public abstract void setSearchOnlyAlarmingDevices ();
-
-            /**
-    * Sets the 1-Wire Network search to not perform a 1-Wire
-    * reset before a search.  This feature is chiefly used with
-    * the DS2409 1-Wire coupler.
-    * The normal reset before each search can be restored with the
-    * 'setSearchAllDevices()' method.
-    */
-            public abstract void setNoResetSearch ();
-
-            /**
-    * Sets the 1-Wire Network search to find all iButtons and 1-Wire
-    * devices whether they are in an 'Alarm' state or not and
-    * restores the default setting of providing a 1-Wire reset
-    * command before each search. (see setNoResetSearch() method).
-    *
-    * @see #setNoResetSearch
-    */
-            public abstract void setSearchAllDevices ();
-
-            /**
-    * Removes any selectivity during a search for iButtons or 1-Wire devices
-    * by family type.  The unique address for each iButton and 1-Wire device
-    * contains a family descriptor that indicates the capabilities of the
-    * device.
-    * @see    #targetFamily
-    * @see    #targetFamily(byte[])
-    * @see    #excludeFamily
-    * @see    #excludeFamily(byte[])
-    */
-            public void targetAllFamilies ()
-            {
-                include = null;
-                exclude = null;
-            }
-
-            /**
-    * Takes an integer to selectively search for this desired family type.
-    * If this method is used, then no devices of other families will be
-    * found by any of the search methods.
-    *
-    * @param  family   the code of the family type to target for searches
-    * @see   com.dalsemi.onewire.utils.Address
-    * @see    #targetAllFamilies
-    */
-            public void targetFamily (int family)
-            {
-                if ((include == null) || (include.length != 1))
-                    include = new byte [1];
-
-                include [0] = ( byte ) family;
-            }
-
-            /**
-    * Takes an array of bytes to use for selectively searching for acceptable
-    * family codes.  If used, only devices with family codes in this array
-    * will be found by any of the search methods.
-    *
-    * @param  family  array of the family types to target for searches
-    * @see   com.dalsemi.onewire.utils.Address
-    * @see    #targetAllFamilies
-    */
-            public void targetFamily (byte family [])
-            {
-                if ((include == null) || (include.length != family.length))
-                    include = new byte [family.length];
-
-                System.arraycopy(family, 0, include, 0, family.length);
-            }
-
-            /**
-    * Takes an integer family code to avoid when searching for iButtons.
-    * or 1-Wire devices.
-    * If this method is used, then no devices of this family will be
-    * found by any of the search methods.
-    *
-    * @param  family   the code of the family type NOT to target in searches
-    * @see   com.dalsemi.onewire.utils.Address
-    * @see    #targetAllFamilies
-    */
-            public void excludeFamily (int family)
-            {
-                if ((exclude == null) || (exclude.length != 1))
-                    exclude = new byte [1];
-
-                exclude [0] = ( byte ) family;
-            }
-
-            /**
-    * Takes an array of bytes containing family codes to avoid when finding
-    * iButtons or 1-Wire devices.  If used, then no devices with family
-    * codes in this array will be found by any of the search methods.
-    *
-    * @param  family  array of family cods NOT to target for searches
-    * @see   com.dalsemi.onewire.utils.Address
-    * @see    #targetAllFamilies
-    */
-            public void excludeFamily (byte family [])
-            {
-                if ((exclude == null) || (exclude.length != family.length))
-                    exclude = new byte [family.length];
-
-                System.arraycopy(family, 0, exclude, 0, family.length);
-            }
-
-            //--------
-            //-------- 1-Wire Network Semaphore methods
-            //--------
-
-            /**
-    * Gets exclusive use of the 1-Wire to communicate with an iButton or
-    * 1-Wire Device.
-    * This method should be used for critical sections of code where a
-    * sequence of commands must not be interrupted by communication of
-    * threads with other iButtons, and it is permissible to sustain
-    * a delay in the special case that another thread has already been
-    * granted exclusive access and this access has not yet been
-    * relinquished. <p>
-    *
-    * It can be called through the OneWireContainer
-    * class by the end application if they want to ensure exclusive
-    * use.  If it is not called around several methods then it
-    * will be called inside each method.
-    *
-    * @param blocking <code>true</code> if want to block waiting
-    *                 for an excluse access to the adapter
-    * @return <code>true</code> if blocking was false and a
-    *         exclusive session with the adapter was aquired
-    *
-    * @throws OneWireException on a setup error with the 1-Wire adapter
-    */
-            public abstract boolean beginExclusive (boolean blocking)
-            throws OneWireException;
-
-            /**
-    * Relinquishes exclusive control of the 1-Wire Network.
-    * This command dynamically marks the end of a critical section and
-    * should be used when exclusive control is no longer needed.
-    */
-            public abstract void endExclusive ();
-
-            //--------
-            //-------- Primitive 1-Wire Network data methods
-            //--------
-
-            /**
-    * Sends a bit to the 1-Wire Network.
-    *
-    * @param  bitValue  the bit value to send to the 1-Wire Network.
-    *
-    * @throws OneWireIOException on a 1-Wire communication error
-    * @throws OneWireException on a setup error with the 1-Wire adapter
-    */
-            public abstract void putBit (boolean bitValue)
-            throws OneWireIOException, OneWireException;
-
-            /**
-    * Gets a bit from the 1-Wire Network.
-    *
-    * @return  the bit value recieved from the the 1-Wire Network.
-    *
-    * @throws OneWireIOException on a 1-Wire communication error
-    * @throws OneWireException on a setup error with the 1-Wire adapter
-    */
-            public abstract boolean getBit ()
-            throws OneWireIOException, OneWireException;
-
-            /**
-    * Sends a byte to the 1-Wire Network.
-    *
-    * @param  byteValue  the byte value to send to the 1-Wire Network.
-    *
-    * @throws OneWireIOException on a 1-Wire communication error
-    * @throws OneWireException on a setup error with the 1-Wire adapter
-    */
-            public abstract void putByte (int byteValue)
-            throws OneWireIOException, OneWireException;
-
-            /**
-    * Gets a byte from the 1-Wire Network.
-    *
-    * @return  the byte value received from the the 1-Wire Network.
-    *
-    * @throws OneWireIOException on a 1-Wire communication error
-    * @throws OneWireException on a setup error with the 1-Wire adapter
-    */
-            public abstract int getByte ()
-            throws OneWireIOException, OneWireException;
-
-            /**
-    * Gets a block of data from the 1-Wire Network.
-    *
-    * @param  len  length of data bytes to receive
-    *
-    * @return  the data received from the 1-Wire Network.
-    *
-    * @throws OneWireIOException on a 1-Wire communication error
-    * @throws OneWireException on a setup error with the 1-Wire adapter
-    */
-            public abstract byte[] getBlock (int len)
-            throws OneWireIOException, OneWireException;
-
-            /**
-    * Gets a block of data from the 1-Wire Network and write it into
-    * the provided array.
-    *
-    * @param  arr     array in which to write the received bytes
-    * @param  len     length of data bytes to receive
-    *
-    * @throws OneWireIOException on a 1-Wire communication error
-    * @throws OneWireException on a setup error with the 1-Wire adapter
-    */
-            public abstract void getBlock (byte[] arr, int len)
-            throws OneWireIOException, OneWireException;
-
-            /**
-    * Gets a block of data from the 1-Wire Network and write it into
-    * the provided array.
-    *
-    * @param  arr     array in which to write the received bytes
-    * @param  off     offset into the array to start
-    * @param  len     length of data bytes to receive
-    *
-    * @throws OneWireIOException on a 1-Wire communication error
-    * @throws OneWireException on a setup error with the 1-Wire adapter
-    */
-            public abstract void getBlock (byte[] arr, int off, int len)
-            throws OneWireIOException, OneWireException;
-
-            /**
-    * Sends a block of data and returns the data received in the same array.
-    * This method is used when sending a block that contains reads and writes.
-    * The 'read' portions of the data block need to be pre-loaded with 0xFF's.
-    * It starts sending data from the index at offset 'off' for length 'len'.
-    *
-    * @param  dataBlock  array of data to transfer to and from the 1-Wire Network.
-    * @param  off        offset into the array of data to start
-    * @param  len        length of data to send / receive starting at 'off'
-    *
-    * @throws OneWireIOException on a 1-Wire communication error
-    * @throws OneWireException on a setup error with the 1-Wire adapter
-    */
-            public abstract void dataBlock (byte dataBlock [], int off, int len)
-            throws OneWireIOException, OneWireException;
-
-            /**
-    * Sends a Reset to the 1-Wire Network.
-    *
-    * @return  the result of the reset. Potential results are:
-    * <ul>
-    * <li> 0 (RESET_NOPRESENCE) no devices present on the 1-Wire Network.
-    * <li> 1 (RESET_PRESENCE) normal presence pulse detected on the 1-Wire
-    *        Network indicating there is a device present.
-    * <li> 2 (RESET_ALARM) alarming presence pulse detected on the 1-Wire
-    *        Network indicating there is a device present and it is in the
-    *        alarm condition.  This is only provided by the DS1994/DS2404
-    *        devices.
-    * <li> 3 (RESET_SHORT) indicates 1-Wire appears shorted.  This can be
-    *        transient conditions in a 1-Wire Network.  Not all adapter types
-    *        can detect this condition.
-    * </ul>
-    *
-    * @throws OneWireIOException on a 1-Wire communication error
-    * @throws OneWireException on a setup error with the 1-Wire adapter
-    */
-            public abstract int reset ()
-            throws OneWireIOException, OneWireException;
-
-            //--------
-            //-------- 1-Wire Network power methods
-            //--------
-
-            /**
-    * Sets the duration to supply power to the 1-Wire Network.
-    * This method takes a time parameter that indicates the program
-    * pulse length when the method startPowerDelivery().<p>
-    *
-    * Note: to avoid getting an exception,
-    * use the canDeliverPower() and canDeliverSmartPower()
-    * method to check it's availability. <p>
-    *
-    * @param timeFactor
-    * <ul>
-    * <li>   0 (DELIVERY_HALF_SECOND) provide power for 1/2 second.
-    * <li>   1 (DELIVERY_ONE_SECOND) provide power for 1 second.
-    * <li>   2 (DELIVERY_TWO_SECONDS) provide power for 2 seconds.
-    * <li>   3 (DELIVERY_FOUR_SECONDS) provide power for 4 seconds.
-    * <li>   4 (DELIVERY_SMART_DONE) provide power until the
-    *          the device is no longer drawing significant power.
-    * <li>   5 (DELIVERY_INFINITE) provide power until the
-    *          setPowerNormal() method is called.
-    * </ul>
-    *
-    * @throws OneWireIOException on a 1-Wire communication error
-    * @throws OneWireException on a setup error with the 1-Wire adapter
-    */
-            public void setPowerDuration (int timeFactor)
-            throws OneWireIOException, OneWireException
-            {
-                throw new OneWireException(
-                    "Power delivery not supported by this adapter type");
-            }
-
-            /**
-    * Sets the 1-Wire Network voltage to supply power to a 1-Wire device.
-    * This method takes a time parameter that indicates whether the
-    * power delivery should be done immediately, or after certain
-    * conditions have been met. <p>
-    *
-    * Note: to avoid getting an exception,
-    * use the canDeliverPower() and canDeliverSmartPower()
-    * method to check it's availability. <p>
-    *
-    * @param changeCondition
-    * <ul>
-    * <li>   0 (CONDITION_NOW) operation should occur immediately.
-    * <li>   1 (CONDITION_AFTER_BIT) operation should be pending
-    *           execution immediately after the next bit is sent.
-    * <li>   2 (CONDITION_AFTER_BYTE) operation should be pending
-    *           execution immediately after next byte is sent.
-    * </ul>
-    *
-    * @return <code>true</code> if the voltage change was successful,
-    * <code>false</code> otherwise.
-    *
-    * @throws OneWireIOException on a 1-Wire communication error
-    * @throws OneWireException on a setup error with the 1-Wire adapter
-    */
-            public boolean startPowerDelivery (int changeCondition)
-            throws OneWireIOException, OneWireException
-            {
-                throw new OneWireException(
-                    "Power delivery not supported by this adapter type");
-            }
-
-            /**
-    * Sets the duration for providing a program pulse on the
-    * 1-Wire Network.
-    * This method takes a time parameter that indicates the program
-    * pulse length when the method startProgramPulse().<p>
-    *
-    * Note: to avoid getting an exception,
-    * use the canDeliverPower() method to check it's
-    * availability. <p>
-    *
-    * @param timeFactor
-    * <ul>
-    * <li>   7 (DELIVERY_EPROM) provide program pulse for 480 microseconds
-    * <li>   5 (DELIVERY_INFINITE) provide power until the
-    *          setPowerNormal() method is called.
-    * </ul>
-    *
-    * @throws OneWireIOException on a 1-Wire communication error
-    * @throws OneWireException on a setup error with the 1-Wire adapter
-    */
-            public void setProgramPulseDuration (int timeFactor)
-            throws OneWireIOException, OneWireException
-            {
-                throw new OneWireException(
-                    "Program pulse delivery not supported by this adapter type");
-            }
-
-            /**
-    * Sets the 1-Wire Network voltage to eprom programming level.
-    * This method takes a time parameter that indicates whether the
-    * power delivery should be done immediately, or after certain
-    * conditions have been met. <p>
-    *
-    * Note: to avoid getting an exception,
-    * use the canProgram() method to check it's
-    * availability. <p>
-    *
-    * @param changeCondition
-    * <ul>
-    * <li>   0 (CONDITION_NOW) operation should occur immediately.
-    * <li>   1 (CONDITION_AFTER_BIT) operation should be pending
-    *           execution immediately after the next bit is sent.
-    * <li>   2 (CONDITION_AFTER_BYTE) operation should be pending
-    *           execution immediately after next byte is sent.
-    * </ul>
-    *
-    * @return <code>true</code> if the voltage change was successful,
-    * <code>false</code> otherwise.
-    *
-    * @throws OneWireIOException on a 1-Wire communication error
-    * @throws OneWireException on a setup error with the 1-Wire adapter
-    *         or the adapter does not support this operation
-    */
-            public boolean startProgramPulse (int changeCondition)
-            throws OneWireIOException, OneWireException
-            {
-                throw new OneWireException(
-                    "Program pulse delivery not supported by this adapter type");
-            }
-
-            /**
-    * Sets the 1-Wire Network voltage to 0 volts.  This method is used
-    * rob all 1-Wire Network devices of parasite power delivery to force
-    * them into a hard reset.
-    *
-    * @throws OneWireIOException on a 1-Wire communication error
-    * @throws OneWireException on a setup error with the 1-Wire adapter
-    *         or the adapter does not support this operation
-    */
-            public void startBreak ()
-            throws OneWireIOException, OneWireException
-            {
-                throw new OneWireException(
-                    "Break delivery not supported by this adapter type");
-            }
-
-            /**
-    * Sets the 1-Wire Network voltage to normal level.  This method is used
-    * to disable 1-Wire conditions created by startPowerDelivery and
-    * startProgramPulse.  This method will automatically be called if
-    * a communication method is called while an outstanding power
-    * command is taking place.
-    *
-    * @throws OneWireIOException on a 1-Wire communication error
-    * @throws OneWireException on a setup error with the 1-Wire adapter
-    *         or the adapter does not support this operation
-    */
-            public void setPowerNormal ()
-            throws OneWireIOException, OneWireException
-            {
-                return;
-            }
-
-            //--------
-            //-------- 1-Wire Network speed methods
-            //--------
-
-            /**
-    * Sets the new speed of data
-    * transfer on the 1-Wire Network. <p>
-    *
-    * @param speed
-    * <ul>
-    * <li>     0 (SPEED_REGULAR) set to normal communciation speed
-    * <li>     1 (SPEED_FLEX) set to flexible communciation speed used
-    *            for long lines
-    * <li>     2 (SPEED_OVERDRIVE) set to normal communciation speed to
-    *            overdrive
-    * <li>     3 (SPEED_HYPERDRIVE) set to normal communciation speed to
-    *            hyperdrive
-    * <li>    >3 future speeds
-    * </ul>
-    *
-    * @throws OneWireIOException on a 1-Wire communication error
-    * @throws OneWireException on a setup error with the 1-Wire adapter
-    *         or the adapter does not support this operation
-    */
-            public void setSpeed (int speed)
-            throws OneWireIOException, OneWireException
-            {
-                if (speed != SPEED_REGULAR)
-                    throw new OneWireException(
-                        "Non-regular 1-Wire speed not supported by this adapter type");
-            }
-
-            /**
-    * Returns the current data transfer speed on the 1-Wire Network. <p>
-    *
-    * @return <code>int</code> representing the current 1-Wire speed
-    * <ul>
-    * <li>     0 (SPEED_REGULAR) set to normal communication speed
-    * <li>     1 (SPEED_FLEX) set to flexible communication speed used
-    *            for long lines
-    * <li>     2 (SPEED_OVERDRIVE) set to normal communication speed to
-    *            overdrive
-    * <li>     3 (SPEED_HYPERDRIVE) set to normal communication speed to
-    *            hyperdrive
-    * <li>    >3 future speeds
-    * </ul>
-    */
-            public int getSpeed ()
-            {
-                return SPEED_REGULAR;
-            }
-
-            //--------
-            //-------- Misc
-            //--------
-
-            /**
-    * Constructs a <code>OneWireContainer</code> object with a user supplied 1-Wire network address.
-    *
-    * @param  address  device address with which to create a new container
-    *
-    * @return  The <code>OneWireContainer</code> object
-    * @see   com.dalsemi.onewire.utils.Address
-    */
-            public OneWireContainer getDeviceContainer (byte[] address)
-            {
-                int              family_code   = address [0] & 0x7F;
-                String           family_string =
-                    ((family_code) < 16)
-                    ? ("0" + Integer.toHexString(family_code)).toUpperCase()
-                    : (Integer.toHexString(family_code)).toUpperCase();
-                Class            ibutton_class = null;
-                OneWireContainer new_ibutton;
-
-                // If any user registered button exist, check the hashtable.
-                if (!registeredOneWireContainerClasses.isEmpty())
-                {
-                    Integer familyInt = new Integer(family_code);
-
-                    // Try and get a user provided container class first.
-                    ibutton_class =
-                        ( Class ) registeredOneWireContainerClasses.get(familyInt);
-                }
-
-                // If we don't get one, do the normal lookup method.
-                if (ibutton_class == null)
-                {
-
-                    // try to load the ibutton container class
-                    try
-                    {
-                        ibutton_class =
-                            Class.forName("com.dalsemi.onewire.container.OneWireContainer"
-                                + family_string);
-                    }
-                    catch (Exception e)
-                    {
-                        ibutton_class = null;
-                    }
-
-                    // if did not get specific container try the general one
-                    if (ibutton_class == null)
-                    {
-
-                        // try to load the ibutton container class
-                        try
-                        {
-                            ibutton_class = Class.forName(
-                                "com.dalsemi.onewire.container.OneWireContainer");
-                        }
-                        catch (Exception e)
-                        {
-                            System.out.println("EXCEPTION: Unable to load OneWireContainer"
-                                + e);
-                            return null;
-                        }
-                    }
-                }
-
-                // try to load the ibutton container class
-                try
-                {
-
-                    // create the iButton container with a reference to this adapter
-                    new_ibutton = ( OneWireContainer ) ibutton_class.newInstance();
-
-                    new_ibutton.setupContainer(this, address);
-                }
-                catch (Exception e)
-                {
-                    System.out.println(
-                        "EXCEPTION: Unable to instantiate OneWireContainer "
-                        + ibutton_class + ": " + e);
-                    e.printStackTrace();
-
-                    return null;
-                }
-
-                // return this new container
-                return new_ibutton;
-            }
-
-            /**
-    * Constructs a <code>OneWireContainer</code> object with a user supplied 1-Wire network address.
-    *
-    * @param  address  device address with which to create a new container
-    *
-    * @return  The <code>OneWireContainer</code> object
-    * @see   com.dalsemi.onewire.utils.Address
-    */
-            public OneWireContainer getDeviceContainer (long address)
-            {
-                return getDeviceContainer(Address.toByteArray(address));
-            }
-
-            /**
-    * Constructs a <code>OneWireContainer</code> object with a user supplied 1-Wire network address.
-    *
-    * @param  address  device address with which to create a new container
-    *
-    * @return  The <code>OneWireContainer</code> object
-    * @see   com.dalsemi.onewire.utils.Address
-    */
-            public OneWireContainer getDeviceContainer (String address)
-            {
-                return getDeviceContainer(Address.toByteArray(address));
-            }
-
-            /**
-    * Constructs a <code>OneWireContainer</code> object using the current 1-Wire network address.
-    * The internal state of the port adapter keeps track of the last
-    * address found and is able to create container objects from this
-    * state.
-    *
-    * @return  the <code>OneWireContainer</code> object
-    */
-            public OneWireContainer getDeviceContainer ()
-            {
-
-                // Mask off the upper bit.
-                byte[] address = new byte [8];
-
-                getAddress(address);
-
-                return getDeviceContainer(address);
-            }
-
-            /**
-    * Checks to see if the family found is in the desired
-    * include group.
-    *
-    * @return  <code>true</code> if in include group
-    */
-            protected boolean isValidFamily (byte[] address)
-            {
-                byte familyCode = address [0];
-
-                if (exclude != null)
-                {
-                    for (int i = 0; i < exclude.length; i++)
-                    {
-                        if (familyCode == exclude [i])
-                        {
-                            return false;
-                        }
-                    }
-                }
-
-                if (include != null)
-                {
-                    for (int i = 0; i < include.length; i++)
-                    {
-                        if (familyCode == include [i])
-                        {
-                            return true;
-                        }
-                    }
-
-                    return false;
-                }
-
-                return true;
-            }
-
-            /**
-    * Performs a 'strongAccess' with the provided 1-Wire address.
-    * 1-Wire Network has already been reset and the 'search'
-    * command sent before this is called.
-    *
-    * @param  address  device address to do strongAccess on
-    *
-    * @return  true if device participated and was present
-    *         in the strongAccess search
-    */
-            private boolean strongAccess (byte[] address)
-            throws OneWireIOException, OneWireException
-            {
-                byte[] send_packet = new byte [24];
-                int    i;
-
-                // set all bits at first
-                for (i = 0; i < 24; i++)
-                    send_packet [i] = ( byte ) 0xFF;
-
-                // now set or clear apropriate bits for search
-                for (i = 0; i < 64; i++)
-                    arrayWriteBit(arrayReadBit(i, address), (i + 1) * 3 - 1,
-                        send_packet);
-
-                // send to 1-Wire Net
-                dataBlock(send_packet, 0, 24);
-
-                // check the results of last 8 triplets (should be no conflicts)
-                int cnt = 56, goodbits = 0, tst, s;
-
-                for (i = 168; i < 192; i += 3)
-                {
-                    tst = (arrayReadBit(i, send_packet) << 1)
-                        | arrayReadBit(i + 1, send_packet);
-                    s   = arrayReadBit(cnt++, address);
-
-                    if (tst == 0x03)   // no device on line
-                    {
-                        goodbits = 0;   // number of good bits set to zero
-
-                        break;          // quit
-                    }
-
-                    if (((s == 0x01) && (tst == 0x02)) || ((s == 0x00) && (tst == 0x01)))   // correct bit
-                        goodbits++;   // count as a good bit
-                }
-
-                // check too see if there were enough good bits to be successful
-                return (goodbits >= 8);
-            }
-
-            /**
-    * Writes the bit state in a byte array.
-    *
-    * @param state new state of the bit 1, 0
-    * @param index bit index into byte array
-    * @param buf byte array to manipulate
-    */
-            private void arrayWriteBit (int state, int index, byte[] buf)
-            {
-                int nbyt = (index >>> 3);
-                int nbit = index - (nbyt << 3);
-
-                if (state == 1)
-                    buf [nbyt] |= (0x01 << nbit);
-                else
-                    buf [nbyt] &= ~(0x01 << nbit);
-            }
-
-            /**
-    * Reads a bit state in a byte array.
-    *
-    * @param index bit index into byte array
-    * @param buf byte array to read from
-    *
-    * @return bit state 1 or 0
-    */
-            private int arrayReadBit (int index, byte[] buf)
-            {
-                int nbyt = (index >>> 3);
-                int nbit = index - (nbyt << 3);
-
-                return ((buf [nbyt] >>> nbit) & 0x01);
-            }
-
-            //--------
-            //-------- java.lang.Object methods
-            //--------
-
-            /**
-    * Returns a hashcode for this object
-    * @return a hascode for this object
-    */
-            /*public int hashCode()
-            {
-                return this.toString().hashCode();
-            }*/
-
-            /**
-            * Returns true if the given object is the same or equivalent
-                * to this DSPortAdapter.
-                *
-                * @param o the Object to compare this DSPortAdapter to
-                * @return true if the given object is the same or equivalent
-                    * to this DSPortAdapter.
-                    */
-                    public boolean equals(Object o)
-                {
-                    if(o!=null && o instanceof DSPortAdapter)
-                    {
-                        if(o==this || o.toString().equals(this.toString()))
-                        {
-                            return true;
-                        }
-                    }
-                    return false;
-                }
-
-            /**
-    * Returns a string representation of this DSPortAdapter, in the format
-    * of "<adapter name> <port name>".
-    *
-    * @return a string representation of this DSPortAdapter
-    */
-            public String toString()
-            {
-                try
-                {
-                    return this.getAdapterName() + " " + this.getPortName();
-                }
-                catch(OneWireException owe)
-                {
-                    return this.getAdapterName() + " Unknown Port";
-                }
+        //#endif
+
+        /// <summary>
+        /// Sets the 1-Wire Network search to find only 1-Wire devices that are in an "alarm" state that signals a need
+        /// for attention. This selective searching can be cancelled using <see cref="SetSearchAllDevices()"/>.
+        /// </summary>
+        /// <remarks>
+        /// Only some iButtons, e.g. DS1994, DS1920 and DS2407, can enter an alarm state.
+        /// </remarks>
+        public abstract void SetSearchOnlyAlarmingDevices();
+
+        /// <summary>
+        /// Sets the 1-Wire Network search to not perform a 1-Wire reset before a search. This feature is chiefly used
+        /// with the DS2409 1-Wire coupler. The normal reset before each search can be restored using
+        /// <see cref="SetSearchAllDevices()"/>.
+        /// </summary>
+        public abstract void SetNoResetSearch();
+
+        /// <summary>
+        /// Sets the 1-Wire Network search to find all 1-Wire devices (whether they are in an "Alarm" state or not) and
+        /// restores the default setting of providing a 1-Wire reset command before each search (behavior that can be
+        /// deactivated by <see cref="SetNoResetSearch()"/>).
+        /// </summary>
+        public abstract void SetSearchAllDevices();
+
+        /// <summary>
+        /// Removes any selectivity during a search for 1-Wire devices by family type. The unique address for each
+        /// 1-Wire device contains a family descriptor that indicates the capabilities of the device.
+        /// </summary>
+        public void TargetAllFamilies()
+        {
+            _include = null;
+            _exclude = null;
         }
-        #endif
+
+        /// <summary>
+        /// Limits searches to the supplied family type. If this method is used, no devices of other families will be
+        /// found by any of the search methods. The behavior can be reset using <see cref="TargetAllFamilies()"/>.
+        /// </summary>
+        /// <remarks>
+        /// Exclusions (<see cref="ExcludeFamily(byte)"/>, <see cref="ExcludeFamilies(IEnumerable{byte})"/>) take
+        /// precedence over inclusions (<see cref="TargetFamily(byte)"/>,
+        /// <see cref="TargetFamilies(IEnumerable{byte})"/>).
+        /// </remarks>
+        /// <param name="family">The code of the family to target exclusively during searches.</param>
+        public void TargetFamily(byte family)
+        {
+            if (_include == null)
+            {
+                _include = new HashSet<byte>();
+            }
+            _include.Clear();
+            _include.Add(family);
+        }
+
+        /// <summary>
+        /// Limits searches to the supplied list of family types. If this method is used, no devices of other families
+        /// will be found by any of the search methods. The behavior can be reset using
+        /// <see cref="TargetAllFamilies()"/>.
+        /// </summary>
+        /// <remarks>
+        /// Exclusions (<see cref="ExcludeFamily(byte)"/>, <see cref="ExcludeFamilies(IEnumerable{byte})"/>) take
+        /// precedence over inclusions (<see cref="TargetFamily(byte)"/>,
+        /// <see cref="TargetFamilies(IEnumerable{byte})"/>).
+        /// </remarks>
+        /// <param name="families">The codes of the families to target exclusively during searches.</param>
+        public void TargetFamilies(IEnumerable<byte> families)
+        {
+            if (_include == null)
+            {
+                _include = new HashSet<byte>();
+            }
+            _include.Clear();
+            _include.UnionWith(families);
+        }
+
+        /// <summary>
+        /// Limits searches to any but the supplied family type. If this method is used, no devices of this family will
+        /// be found by any of the search methods. The behavior can be reset using <see cref="TargetAllFamilies()"/>.
+        /// </summary>
+        /// <remarks>
+        /// Exclusions (<see cref="ExcludeFamily(byte)"/>, <see cref="ExcludeFamilies(IEnumerable{byte})"/>) take
+        /// precedence over inclusions (<see cref="TargetFamily(byte)"/>,
+        /// <see cref="TargetFamilies(IEnumerable{byte})"/>).
+        /// </remarks>
+        /// <param name="family">The code of the family to ignore during searches.</param>
+        public void ExcludeFamily(byte family)
+        {
+            if (_include == null)
+            {
+                _include = new HashSet<byte>();
+            }
+            _include.Clear();
+            _include.Add(family);
+        }
+
+        /// <summary>
+        /// Limits searches to any but the supplied list of family types. If this method is used, no devices of these
+        /// families will be found by any of the search methods. The behavior can be reset using
+        /// <see cref="TargetAllFamilies()"/>.
+        /// </summary>
+        /// <remarks>
+        /// Exclusions (<see cref="ExcludeFamily(byte)"/>, <see cref="ExcludeFamilies(IEnumerable{byte})"/>) take
+        /// precedence over inclusions (<see cref="TargetFamily(byte)"/>,
+        /// <see cref="TargetFamilies(IEnumerable{byte})"/>).
+        /// </remarks>
+        /// <param name="families">The codes of the families to ignore during searches.</param>
+        public void ExcludeFamilies(IEnumerable<byte> families)
+        {
+            if (_include == null)
+            {
+                _include = new HashSet<byte>();
+            }
+            _include.Clear();
+            _include.UnionWith(families);
+        }
+
+        /// <summary>
+        /// Gets exclusive use of the 1-Wire to communicate with a 1-Wire device. This method should be used for
+        /// critical sections of code where a sequence of commands must not be interrupted by communication of threads
+        /// with other 1-Wire devices, and it is permissible to sustain a delay in the special case that another thread
+        /// has already been granted exclusive access and this access has not yet been relinquished.
+        /// </summary>
+        /// <remarks>
+        /// This method may be called through the <see cref="OneWireContainer"/> class by the end application if they
+        /// want to ensure exclusive access. If it is not called around several methods, it will be called inside each
+        /// method.
+        /// </remarks>
+        /// <param name="timeout">
+        /// The time after which to give up attempting to obtain exclusive access, or <c>null</c> to block
+        /// indefinitely.
+        /// </param>
+        /// <returns>
+        /// <c>true</c> if exclusive access has been granted; <c>false</c> if the operation timed out beforehand.
+        /// </returns>
+        /// <exception cref="OneWireException">Thrown on a 1-Wire setup error with the adapter.</exception>
+        public abstract bool BeginExclusive(TimeSpan? timeout = null);
+
+        /// <summary>
+        /// Relinquishes exclusive control of the 1-Wire Network. This command dynamically marks the end of a critical
+        /// section and should be used when exclusive control is no longer needed.
+        /// </summary>
+        public abstract void EndExclusive();
+
+        /// <summary>
+        /// Sends a bit to the 1-Wire Network.
+        /// </summary>
+        /// <param name="bitValue">The bit value to send to the 1-Wire Network.</param>
+        /// <exception cref="OneWireIOException">
+        /// Thrown on a 1-Wire communication error with the adapter or if there are no devices on the 1-Wire Network.
+        /// </exception>
+        /// <exception cref="OneWireException">Thrown on a 1-Wire setup error with the adapter.</exception>
+        public abstract void PutBit(bool bitValue);
+
+        /// <summary>
+        /// Gets a bit from the 1-Wire Network.
+        /// </summary>
+        /// <returns>The bit value received from the 1-Wire Network.</returns>
+        /// <exception cref="OneWireIOException">
+        /// Thrown on a 1-Wire communication error with the adapter or if there are no devices on the 1-Wire Network.
+        /// </exception>
+        /// <exception cref="OneWireException">Thrown on a 1-Wire setup error with the adapter.</exception>
+        public abstract bool GetBit();
+
+        /// <summary>
+        /// Sends a byte to the 1-Wire Network.
+        /// </summary>
+        /// <param name="byteValue">The byte value to send to the 1-Wire Network.</param>
+        /// <exception cref="OneWireIOException">
+        /// Thrown on a 1-Wire communication error with the adapter or if there are no devices on the 1-Wire Network.
+        /// </exception>
+        /// <exception cref="OneWireException">Thrown on a 1-Wire setup error with the adapter.</exception>
+        public abstract void PutByte(byte byteValue);
+
+        /// <summary>
+        /// Gets a byte from the 1-Wire Network.
+        /// </summary>
+        /// <returns>The byte value received from the 1-Wire Network.</returns>
+        /// <exception cref="OneWireIOException">
+        /// Thrown on a 1-Wire communication error with the adapter or if there are no devices on the 1-Wire Network.
+        /// </exception>
+        /// <exception cref="OneWireException">Thrown on a 1-Wire setup error with the adapter.</exception>
+        public abstract bool GetByte();
+
+        /// <summary>
+        /// Gets a block of data from the 1-Wire Network.
+        /// </summary>
+        /// <param name="len">Number of data bytes to receive.</param>
+        /// <exception cref="OneWireIOException">
+        /// Thrown on a 1-Wire communication error with the adapter or if there are no devices on the 1-Wire Network.
+        /// </exception>
+        /// <exception cref="OneWireException">Thrown on a 1-Wire setup error with the adapter.</exception>
+        /// <exception cref="ArgumentOutOfRangeException">Thrown if <paramref name="len"/> is less than zero.</exception>
+        /// <returns>The data received from the 1-Wire Network.</returns>
+        public virtual byte[] GetBlock(int len)
+        {
+            var ret = new byte[len];
+            GetBlock(ret, 0, len);
+            return ret;
+        }
+
+        /// <summary>
+        /// Gets a block of data from the 1-Wire Network.
+        /// </summary>
+        /// <param name="bytes">The (pre-allocated) list into which to store the received bytes.</param>
+        /// <param name="len">Number of data bytes to receive.</param>
+        /// <exception cref="OneWireIOException">
+        /// Thrown on a 1-Wire communication error with the adapter or if there are no devices on the 1-Wire Network.
+        /// </exception>
+        /// <exception cref="OneWireException">Thrown on a 1-Wire setup error with the adapter.</exception>
+        /// <exception cref="ArgumentOutOfRangeException">
+        /// Thrown if <paramref name="len"/> is less than zero.
+        /// </exception>
+        public virtual void GetBlock([NotNull] IList<byte> bytes, int len)
+        {
+            GetBlock(bytes, 0, len);
+        }
+
+        /// <summary>
+        /// Gets a block of data from the 1-Wire Network.
+        /// </summary>
+        /// <param name="bytes">The (pre-allocated) list into which to store the received bytes.</param>
+        /// <param name="offset">
+        /// The index in the list at which to store the first received byte; the remaining bytes are stored
+        /// consecutively after this one.
+        /// </param>
+        /// <param name="len">Number of data bytes to receive.</param>
+        /// <exception cref="OneWireIOException">
+        /// Thrown on a 1-Wire communication error with the adapter or if there are no devices on the 1-Wire Network.
+        /// </exception>
+        /// <exception cref="OneWireException">Thrown on a 1-Wire setup error with the adapter.</exception>
+        /// <exception cref="ArgumentOutOfRangeException">
+        /// Thrown if <paramref name="offset"/> or <paramref name="len"/> are less than zero.
+        /// </exception>
+        public virtual void GetBlock([NotNull] IList<byte> bytes, int offset, int len)
+        {
+            // store 0xFF at the relevant locations to force a read
+            for (int i = 0; i < len; ++i)
+            {
+                bytes[offset + i] = 0xFF;
+            }
+
+            // transfer the data
+            DataBlock(bytes, offset, len);
+        }
+
+        /// <summary>
+        /// Sends a block of data and returns the data received in the same list. This method is used when sending a
+        /// block that contains reads and writes. The "read" portions of the data block need to be pre-loaded with
+        /// <c>0xFF</c>. The method sends data from the index at offset <paramref name="offset"/> for length
+        /// <paramref name="len"/>.
+        /// </summary>
+        /// <param name="bytes">
+        /// The list whose contents to send to and into which to store the data read from the 1-Wire Network.
+        /// </param>
+        /// <param name="offset">
+        /// The index in the list at which to start reading bytes to send and at which to store received bytes. The
+        /// remaining bytes are read from and stored to the consecutive indices.
+        /// </param>
+        /// <param name="len">Number of data bytes to send and receive.</param>
+        /// <exception cref="OneWireIOException">
+        /// Thrown on a 1-Wire communication error with the adapter or if there are no devices on the 1-Wire Network.
+        /// </exception>
+        /// <exception cref="OneWireException">Thrown on a 1-Wire setup error with the adapter.</exception>
+        /// <exception cref="ArgumentOutOfRangeException">
+        /// Thrown if <paramref name="offset"/> or <paramref name="len"/> are less than zero.
+        /// </exception>
+        public abstract void DataBlock([NotNull] IList<byte> bytes, int offset, int len);
+
+        /// <summary>
+        /// Sends a reset to the 1-Wire Network.
+        /// </summary>
+        /// <returns>The result of the reset operation.</returns>
+        /// <exception cref="OneWireIOException">
+        /// Thrown on a 1-Wire communication error with the adapter.
+        /// </exception>
+        /// <exception cref="OneWireException">Thrown on a 1-Wire setup error with the adapter.</exception>
+        public abstract ResetResult Reset();
+
+        /// <summary>
+        /// Sets the duration to supply power to the 1-Wire Network. This method takes a time parameter that indicates
+        /// the program pulse length when <see cref="StartPowerDelivery(PowerStateChangeCondition)"/> is called.
+        /// </summary>
+        /// <remarks>
+        /// Verify the result of <see cref="SupportsLevel(Level)"/> with <see cref="Level.PowerDelivery"/> and the
+        /// value of <see cref="CanDeliverSmartPower"/> before calling this method to avoid exceptions being thrown.
+        /// </remarks>
+        /// <param name="deliveryDuration">The duration for which to deliver power.</param>
+        /// <exception cref="OneWireIOException">
+        /// Thrown on a 1-Wire communication error with the adapter.
+        /// </exception>
+        /// <exception cref="OneWireException">Thrown on a 1-Wire setup error with the adapter.</exception>
+        /// <exception cref="ArgumentOutOfRangeException">
+        /// Thrown if <paramref name="deliveryDuration"/> is not an explicit time value or
+        /// <see cref="PowerDeliveryDuration.Infinite"/>.
+        /// </exception>
+        public virtual void SetPowerDuration(PowerDeliveryDuration deliveryDuration)
+        {
+            throw new OneWireException("Power delivery not supported by this adapter type");
+        }
+
+        /// <summary>
+        /// Sets the 1-Wire Network voltage to supply power to a 1-Wire device. This method takes a parameter that
+        /// indicates whether the power delivery should be started immediately or after certain conditions have been
+        /// met.
+        /// </summary>
+        /// <param name="when">
+        /// Whether to change the power level immediately or after a unit of data is transferred.
+        /// </param>
+        /// <returns><c>true</c> if the voltage change was successful; <c>false</c> otherwise.</returns>
+        /// <exception cref="OneWireIOException">
+        /// Thrown on a 1-Wire communication error with the adapter.
+        /// </exception>
+        /// <exception cref="OneWireException">Thrown on a 1-Wire setup error with the adapter.</exception>
+        public virtual bool StartPowerDelivery(PowerStateChangeCondition when)
+        {
+            throw new OneWireException("Power delivery not supported by this adapter type");
+        }
+
+        /// <summary>
+        /// Sets the duration for providing a program pulse on the 1-Wire Network. This method takes a time parameter
+        /// that indicates the program pulse length when <see cref="StartProgramPulse()"/> is called.
+        /// </summary>
+        /// <remarks>
+        /// Verify the result of <see cref="SupportsLevel(Level)"/> with <see cref="Level.Program"/> before calling
+        /// this method to avoid exceptions being thrown.
+        /// </remarks>
+        /// <param name="deliveryDuration">The duration for which to deliver power.</param>
+        /// <exception cref="OneWireIOException">
+        /// Thrown on a 1-Wire communication error with the adapter.
+        /// </exception>
+        /// <exception cref="OneWireException">Thrown on a 1-Wire setup error with the adapter.</exception>
+        /// <exception cref="ArgumentOutOfRangeException">
+        /// Thrown if <paramref name="deliveryDuration"/> is neither <see cref="PowerDeliveryDuration.EPROM"/> nor
+        /// <see cref="PowerDeliveryDuration.Infinite"/>.
+        /// </exception>
+        public virtual void SetProgramPulseDuration(PowerDeliveryDuration deliveryDuration)
+        {
+            throw new OneWireException("Power delivery not supported by this adapter type");
+        }
+
+        /// <summary>
+        /// Sets the 1-Wire Network voltage to the EPROM programming level. This method takes a parameter that
+        /// indicates whether the power delivery should be started immediately or after certain conditions have been
+        /// met.
+        /// </summary>
+        /// <param name="when">
+        /// Whether to change the power level immediately or after a unit of data is transferred.
+        /// </param>
+        /// <returns><c>true</c> if the voltage change was successful; <c>false</c> otherwise.</returns>
+        /// <exception cref="OneWireIOException">
+        /// Thrown on a 1-Wire communication error with the adapter.
+        /// </exception>
+        /// <exception cref="OneWireException">Thrown on a 1-Wire setup error with the adapter.</exception>
+        public virtual bool StartProgramPulse(PowerStateChangeCondition when)
+        {
+            throw new OneWireException("Power delivery not supported by this adapter type");
+        }
+
+        /// <summary>
+        /// Sets the 1-Wire Network voltage to 0 volts. This method is used to terminate parasite power delivery to all
+        /// 1-Wire Network devices, forcing them to perform a hard reset.
+        /// </summary>
+        /// <exception cref="OneWireIOException">
+        /// Thrown on a 1-Wire communication error with the adapter.
+        /// </exception>
+        /// <exception cref="OneWireException">Thrown on a 1-Wire setup error with the adapter.</exception>
+        public virtual void StartBreak()
+        {
+            throw new OneWireException("Break delivery not supported by this adapter type");
+        }
+
+        /// <summary>
+        /// Sets the 1-Wire Network voltage to normal level. This method is used to revert the bus to the state before
+        /// <see cref="StartPowerDelivery(PowerStateChangeCondition)"/> or
+        /// <see cref="StartProgramPulse(PowerStateChangeCondition)"/>. This method is called automatically if a
+        /// communication method is called while an outstanding power command is taking place.
+        /// </summary>
+        /// <exception cref="OneWireIOException">
+        /// Thrown on a 1-Wire communication error with the adapter.
+        /// </exception>
+        /// <exception cref="OneWireException">Thrown on a 1-Wire setup error with the adapter.</exception>
+        public virtual void SetPowerNormal()
+        {
+            // nothing to do if the adapter does not support other power levels anyway
+        }
+
+        /// <summary>
+        /// Obtains or changes the data transfer speed of the 1-Wire Network.
+        /// </summary>
+        /// <exception cref="OneWireIOException">
+        /// Thrown on a 1-Wire communication error with the adapter.
+        /// </exception>
+        /// <exception cref="OneWireException">Thrown on a 1-Wire setup error with the adapter.</exception>
+        public virtual NetworkSpeed Speed
+        {
+            get
+            {
+                return NetworkSpeed.Regular;
+            }
+
+            set
+            {
+                if (value != NetworkSpeed.Regular)
+                {
+                    throw new OneWireException("Non-regular 1-Wire speed not supported by this adapter type");
+                }
+            }
+        }
+
+        /// <summary>
+        /// Constructs a <see cref="OneWireContainer"/> object for the user-supplied 1-Wire network address.
+        /// </summary>
+        /// <param name="address">The address of the device for which to create a new container.</param>
+        /// <returns>A <see cref="OneWireContainer"/> for the device with the given address.</returns>
+        /// <exception cref="NotSupportedException">
+        /// Thrown if the container class for the device family does not match the contract (subtype of
+        /// <see cref="OneWireContainer"/>, contains a constructor accepting a <see cref="DSPortAdapter"/> and a
+        /// <see cref="OneWireAddress"/> in that order).
+        /// </exception>
+        public OneWireContainer GetDeviceContainer(OneWireAddress address)
+        {
+            byte familyCode = (byte)(address.FamilyPortion & 0x7F);
+            string familyString = familyCode.ToString("X2", CultureInfo.InvariantCulture);
+            Type iButtonType = null;
+
+            // Does a user-registered button exist?
+            if (_registeredOneWireContainerClasses.ContainsKey(familyCode))
+            {
+                iButtonType = _registeredOneWireContainerClasses[familyCode];
+            }
+
+            if (iButtonType == null)
+            {
+                // Perform the normal lookup.
+                iButtonType = Type.GetType("RavuAlHemio.OneWire.Container.OneWireContainer" + familyString);
+            }
+
+            if (iButtonType == null)
+            {
+                // Fine; fetch the generic container.
+                iButtonType = typeof (OneWireContainer);
+            }
+
+            if (!typeof (OneWireContainer).IsAssignableFrom(iButtonType))
+            {
+                throw new NotSupportedException(
+                    $"type {iButtonType.FullName} is not a subtype of {typeof(OneWireContainer).FullName}"
+                );
+            }
+
+            var ctor = iButtonType.GetConstructor(new [] { typeof(DSPortAdapter), typeof(OneWireAddress) });
+            if (ctor == null)
+            {
+                throw new NotSupportedException(
+                    $"type {iButtonType.FullName} does not have a constructor that takes a {typeof(DSPortAdapter).FullName} and a {typeof(OneWireAddress).FullName} in that order"
+                );
+            }
+            return (OneWireContainer)ctor.Invoke(new object[] { this, address });
+        }
+
+        /// <summary>
+        /// Constructs a <see cref="OneWireContainer"/> object for the most recently found device.
+        /// </summary>
+        /// <returns>A <see cref="OneWireContainer"/> for the device with the given address.</returns>
+        public OneWireContainer GetDeviceContainer()
+        {
+            return GetDeviceContainer(GetAddress());
+        }
+
+        /// <summary>
+        /// Returns whether the device is not excluded by the user's filter (<see cref="TargetFamily(byte)"/>,
+        /// <see cref="TargetFamilies(IEnumerable{byte})"/>, <see cref="ExcludeFamily(byte)"/>,
+        /// <see cref="ExcludeFamilies(IEnumerable{byte})"/>).
+        /// </summary>
+        /// <remarks>
+        /// Exclusions (<see cref="ExcludeFamily(byte)"/>, <see cref="ExcludeFamilies(IEnumerable{byte})"/>) take
+        /// precedence over inclusions (<see cref="TargetFamily(byte)"/>,
+        /// <see cref="TargetFamilies(IEnumerable{byte})"/>).
+        /// </remarks>
+        /// <param name="address">The address of the device whose family to verify against the filter.</param>
+        /// <returns>
+        /// <c>true</c> if this device should be returned as part of the search results; <c>false</c> if not.
+        /// </returns>
+        protected bool IsValidFamily(OneWireAddress address)
+        {
+            byte familyCode = address.FamilyPortion;
+
+            if (_exclude != null)
+            {
+                if (_exclude.Contains(familyCode))
+                {
+                    return false;
+                }
+            }
+
+            if (_include != null)
+            {
+                return _include.Contains(familyCode);
+            }
+
+            return true;
+        }
+
+        /// <summary>
+        /// Performs a "strong access" with the provided 1-Wire address. The method assumes the 1-Wire Network has
+        /// already been reset and the "search" command has been sent before this method is called.
+        /// </summary>
+        /// <param name="address">The address of the device on which to perform the "strong access" on.</param>
+        /// <returns>
+        /// <c>true</c> if the device participated in the "strong access" search; <c>false</c> otherwise.
+        /// </returns>
+        private bool StrongAccess(OneWireAddress address)
+        {
+            // encode the address AAAA... bitwise as 11A11A11A11A...
+            long addressLong = address.ToLong();
+            var serialBits = new BitStringBuffer(192);
+            for (int i = 0; i < 64; ++i)
+            {
+                serialBits[3 * i + 0] = true;
+                serialBits[3 * i + 1] = true;
+                serialBits[3 * i + 2] = (((addressLong >> i) & 0x1) == 0x1);
+            }
+
+            // send to 1-Wire Net
+            DataBlock(serialBits.Buffer, 0, serialBits.Buffer.Length);
+
+            // check the results of the last 8 triplets (there should be no conflicts)
+            int goodBits = 0;
+            for (int i = 168, counter = 56; i < 192; i += 3, ++counter)
+            {
+                bool topSet = serialBits[i];
+                bool bottomSet = serialBits[i + 1];
+                bool counterBit = serialBits[counter];
+
+                if (topSet && bottomSet)
+                {
+                    // no device on line
+                    goodBits = 0;
+                    break;
+                }
+
+                if ((counterBit && topSet && !bottomSet) || (!counterBit && !topSet && bottomSet))
+                {
+                    // correct bit; count as a good bit
+                    ++goodBits;
+                }
+            }
+
+            // enough good bits to be successful?
+            return (goodBits > 8);
+        }
+
+        public override string ToString()
+        {
+            try
+            {
+                return $"{AdapterName} {PortName}";
+            }
+            catch (OneWireException)
+            {
+                return $"{AdapterName} unknown port";
+            }
+        }
     }
 }
 

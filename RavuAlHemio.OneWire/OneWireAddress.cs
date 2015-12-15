@@ -1,4 +1,31 @@
-﻿using System;
+﻿//---------------------------------------------------------------------------
+// Copyright © 1999, 2000 Maxim Integrated Products, All Rights Reserved.
+// Copyright © 2015 Ondřej Hošek <ondra.hosek@gmail.com>
+//
+// Permission is hereby granted, free of charge, to any person obtaining a
+// copy of this software and associated documentation files (the "Software"),
+// to deal in the Software without restriction, including without limitation
+// the rights to use, copy, modify, merge, publish, distribute, sublicense,
+// and/or sell copies of the Software, and to permit persons to whom the
+// Software is furnished to do so, subject to the following conditions:
+//
+// The above copyright notice and this permission notice shall be included
+// in all copies or substantial portions of the Software.
+//
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+// OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+// MERCHANTABILITY,  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+// IN NO EVENT SHALL MAXIM INTEGRATED PRODUCTS BE LIABLE FOR ANY CLAIM, DAMAGES
+// OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
+// ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
+// OTHER DEALINGS IN THE SOFTWARE.
+//
+// Except as contained in this notice, the name of Maxim Integrated Products
+// shall not be used except as stated in the Maxim Integrated Products
+// Branding Policy.
+//---------------------------------------------------------------------------
+
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using JetBrains.Annotations;
@@ -18,7 +45,7 @@ namespace RavuAlHemio.OneWire
         /// <summary>
         /// The actual bytes of the address.
         /// </summary>
-        private byte[] _address;
+        private readonly byte[] _address;
 
         /// <summary>
         /// Initializes a new 1-Wire address.
@@ -68,7 +95,7 @@ namespace RavuAlHemio.OneWire
         /// Initializes a new 1-Wire address.
         /// </summary>
         /// <param name="address">The address as a big-endian hexadecimal string.</param>
-        public OneWireAddress(string address)
+        public OneWireAddress([NotNull] string address)
         {
             if (address.Length != 16)
             {
@@ -145,7 +172,7 @@ namespace RavuAlHemio.OneWire
         {
             get
             {
-                if (_address[0] != 0 && CRC8.Compute(_address) == 0x00)
+                if (_address[0] != 0 && Utils.CRC8.Compute(_address) == 0x00)
                 {
                     return true;
                 }
@@ -156,7 +183,7 @@ namespace RavuAlHemio.OneWire
                     // selectable bits are all 1.
                     var modifiedAddress = new List<byte>(_address);
                     modifiedAddress[1] = 0x7F;
-                    return (CRC8.Compute(modifiedAddress) == 0);
+                    return (Utils.CRC8.Compute(modifiedAddress) == 0);
                 }
 
                 return false;
@@ -182,5 +209,15 @@ namespace RavuAlHemio.OneWire
         {
             return !(l == r);
         }
+
+        /// <summary>
+        /// The family portion of this address.
+        /// </summary>
+        public byte FamilyPortion => _address[0];
+
+        /// <summary>
+        /// The 8-bit CRC (<see cref="CRC8"/>) portion of this address.
+        /// </summary>
+        public byte CRC8 => _address[7];
     }
 }

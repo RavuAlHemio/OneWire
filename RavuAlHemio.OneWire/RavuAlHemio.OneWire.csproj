@@ -35,8 +35,10 @@
     <Compile Include="Adapter\DSPortAdapter.cs" />
     <Compile Include="Container\OneWireContainer.cs" />
     <Compile Include="OneWireAddress.cs" />
+    <Compile Include="Utils\BitStringBuffer.cs" />
     <Compile Include="Utils\CRC16.cs" />
     <Compile Include="Utils\CRC8.cs" />
+    <Compile Include="Utils\ExclusivePortAccess.cs" />
     <Compile Include="Utils\Hex.cs" />
   </ItemGroup>
   <Import Project="$(MSBuildExtensionsPath32)\Microsoft\Portable\$(TargetFrameworkVersion)\Microsoft.Portable.CSharp.targets" />

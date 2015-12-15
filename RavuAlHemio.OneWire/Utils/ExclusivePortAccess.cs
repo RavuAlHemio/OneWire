@@ -25,35 +25,39 @@
 //---------------------------------------------------------------------------
 
 using System;
+using RavuAlHemio.OneWire.Adapter;
 
 namespace RavuAlHemio.OneWire.Utils
 {
-    public static class Hex
+    public sealed class ExclusivePortAccess : IDisposable
     {
+        private readonly DSPortAdapter _portAdapter;
+
         /// <summary>
-        /// Parses the supplied character as a hexadecimal nibble and returns its value.
+        /// Acquires exclusive access to the supplied port adapter and holds on to it until this object is disposed.
         /// </summary>
-        /// <param name="c">The character to parse.</param>
-        /// <returns><paramref name="c"/> parsed as a hexadecimal nibble.</returns>
-        /// <exception cref="ArgumentOutOfRangeException">
-        /// Thrown if <paramref name="c"/> is not a valid hexadecimal nibble.
+        /// <param name="portAdapter">The port adapter over which to acquire exclusive access.</param>
+        /// <param name="timeout">
+        /// The time after which to give up attempting to obtain exclusive access, or <c>null</c> to block
+        /// indefinitely.
+        /// </param>
+        /// <exception cref="TimeoutException">
+        /// Thrown if <paramref cref="timeout"/> is not <c>null</c> and the exclusive access acquisition operation
+        /// timed out before it could be completed.
         /// </exception>
-        public static byte CharToNibble(char c)
+        public ExclusivePortAccess(DSPortAdapter portAdapter, TimeSpan? timeout = null)
         {
-            if (c >= '0' && c <= '9')
+            _portAdapter = portAdapter;
+
+            if (!_portAdapter.BeginExclusive(timeout))
             {
-                return (byte)(c - '0');
+                throw new TimeoutException();
             }
-            else if (c >= 'A' && c <= 'F')
-            {
-                return (byte)(c - 'A' + 10);
-            }
-            else if (c >= 'a' && c <= 'f')
-            {
-                return (byte)(c - 'a' + 10);
-            }
-            throw new ArgumentOutOfRangeException(nameof(c), $"'{c}' is not a valid hexadecimal nibble");
+        }
+
+        public void Dispose()
+        {
+            _portAdapter.EndExclusive();
         }
     }
 }
-
