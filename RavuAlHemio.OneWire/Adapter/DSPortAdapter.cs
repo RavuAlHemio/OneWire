@@ -243,8 +243,8 @@ namespace RavuAlHemio.OneWire.Adapter
 
         /// <summary>
         /// A list of the platform-appropriate port names for this adapter. A port must be selected with the method
-        /// <see cref="SelectPort"/> before any other communication methods can be used. Using a communcation method
-        /// before <see cref="SelectPort"/> will result in a <see cref="OneWireException"/>.
+        /// <see cref="TrySelectPort"/> before any other communication methods can be used. Using a communcation method
+        /// before <see cref="TrySelectPort"/> will result in a <see cref="OneWireException"/>.
         /// </summary>
         /// <value>A list of the platform-appropriate port names for this adapter.</value>
         public abstract IEnumerable<string> PortNames { get; }
@@ -269,9 +269,9 @@ namespace RavuAlHemio.OneWire.Adapter
         /// Thrown if <paramref name="oneWireContainerClass"/> does not extend
         /// <see cref="RavuAlHemio.OneWire.Container.OneWireContainer"/>.
         /// </exception>
-        public void RegisterOneWireContainerClass(byte family, [CanBeNull] Type oneWireContainerClass)
+        public virtual void RegisterOneWireContainerClass(byte family, [CanBeNull] Type oneWireContainerClass)
         {
-            Type defaultIBC = typeof(OneWireContainer);
+            Type defaultIButtonClass = typeof(OneWireContainer);
 
             if (oneWireContainerClass == null)
             {
@@ -280,13 +280,13 @@ namespace RavuAlHemio.OneWire.Adapter
             }
             else
             {
-                if (defaultIBC.IsAssignableFrom(oneWireContainerClass))
+                if (defaultIButtonClass.IsAssignableFrom(oneWireContainerClass))
                 {
                     _registeredOneWireContainerClasses[family] = oneWireContainerClass;
                 }
                 else
                 {
-                    throw new InvalidCastException("oneWireContainerClass does not extend " + defaultIBC.FullName);
+                    throw new InvalidCastException("oneWireContainerClass does not extend " + defaultIButtonClass.FullName);
                 }
             }
         }
@@ -339,13 +339,7 @@ namespace RavuAlHemio.OneWire.Adapter
         /// Thrown on a communication or setup error with the 1-Wire adapter.
         /// </exception>
         [NotNull]
-        public virtual string AdapterVersion
-        {
-            get
-            {
-                return "<na>";
-            }
-        }
+        public virtual string AdapterVersion => "<na>";
 
         /// <summary>
         /// The address of the adapter, if it has one.
@@ -363,13 +357,7 @@ namespace RavuAlHemio.OneWire.Adapter
         /// Thrown on a communication or setup error with the 1-Wire adapter.
         /// </exception>
         [NotNull]
-        public virtual string AdapterAddress
-        {
-            get
-            {
-                return "<na>";
-            }
-        }
+        public virtual string AdapterAddress => "<na>";
 
         /// <summary>
         /// Returns whether this adapter physically supports the given speed.
@@ -386,10 +374,10 @@ namespace RavuAlHemio.OneWire.Adapter
         }
 
         /// <summary>
-        /// Returns whether this adapter physically supports the given speed.
+        /// Returns whether this adapter physically supports the given power level.
         /// </summary>
-        /// <param name="speed">The speed whose support to check.</param>
-        /// <returns><c>true</c> if the supplied speed is supported; <c>false</c> otherwise.</returns>
+        /// <param name="level">The power level whose support to check.</param>
+        /// <returns><c>true</c> if the supplied power level is supported; <c>false</c> otherwise.</returns>
         public virtual bool SupportsLevel(Level level)
         {
             if (level == Level.Normal)
@@ -406,13 +394,7 @@ namespace RavuAlHemio.OneWire.Adapter
         /// <value><c>true</c> if this port adapter supports "smart" strong 5V power mode; <c>false</c> otherwise.</value>
         /// <exception cref="OneWireIOException">Thrown on a 1-Wire communication error with the adapter.</exception>
         /// <exception cref="OneWireException">Thrown on a 1-Wire setup error with the adapter.</exception>
-        public virtual bool CanDeliverSmartPower
-        {
-            get
-            {
-                return false;
-            }
-        }
+        public virtual bool CanDeliverSmartPower => false;
 
         //#if HALF_IMPLEMENTED
         /// <summary>
@@ -427,7 +409,7 @@ namespace RavuAlHemio.OneWire.Adapter
         /// <exception cref="OneWireIOException">Thrown on a 1-Wire communication error with the adapter.</exception>
         /// <exception cref="OneWireException">Thrown on a 1-Wire setup error with the adapter.</exception>
         [NotNull]
-        public IEnumerable<OneWireContainer> GetAllDeviceContainers()
+        public virtual IEnumerable<OneWireContainer> GetAllDeviceContainers()
         {
             var ibuttonList = new List<OneWireContainer>();
 
@@ -463,11 +445,11 @@ namespace RavuAlHemio.OneWire.Adapter
         /// <exception cref="OneWireIOException">Thrown on a 1-Wire communication error with the adapter.</exception>
         /// <exception cref="OneWireException">Thrown on a 1-Wire setup error with the adapter.</exception>
         [CanBeNull]
-        public OneWireContainer GetFirstDeviceContainer()
+        public virtual OneWireContainer GetFirstDeviceContainer()
         {
             if (FindFirstDevice())
             {
-                return GetDeviceContainer();
+                return DeviceContainer;
             }
             else
             {
@@ -492,7 +474,7 @@ namespace RavuAlHemio.OneWire.Adapter
         {
             if (FindNextDevice())
             {
-                return GetDeviceContainer();
+                return DeviceContainer;
             }
             else
             {
@@ -531,7 +513,7 @@ namespace RavuAlHemio.OneWire.Adapter
         /// <returns><c>true</c> if the device is present; <c>false</c> otherwise.</returns>
         /// <exception cref="OneWireIOException">Thrown on a 1-Wire communication error with the adapter.</exception>
         /// <exception cref="OneWireException">Thrown on a 1-Wire setup error with the adapter.</exception>
-        public bool IsPresent(OneWireAddress address)
+        public virtual bool IsPresent(OneWireAddress address)
         {
             Reset();
             PutByte(0xF0);  // Search ROM command
@@ -550,7 +532,7 @@ namespace RavuAlHemio.OneWire.Adapter
         /// <returns><c>true</c> if the device is present and in an alarm state; <c>false</c> otherwise.</returns>
         /// <exception cref="OneWireIOException">Thrown on a 1-Wire communication error with the adapter.</exception>
         /// <exception cref="OneWireException">Thrown on a 1-Wire setup error with the adapter.</exception>
-        public bool IsAlarming(OneWireAddress address)
+        public virtual bool IsAlarming(OneWireAddress address)
         {
             Reset();
             PutByte(0xEC);  // Conditional Search command
@@ -570,7 +552,7 @@ namespace RavuAlHemio.OneWire.Adapter
         /// <returns><c>true</c> if the device address was sent successfully; <c>false</c> otherwise.</returns>
         /// <exception cref="OneWireIOException">Thrown on a 1-Wire communication error with the adapter.</exception>
         /// <exception cref="OneWireException">Thrown on a 1-Wire setup error with the adapter.</exception>
-        public bool Select(OneWireAddress address)
+        public virtual bool Select(OneWireAddress address)
         {
             // send 1-Wire Reset
             ResetResult resetStatus = Reset();
@@ -793,7 +775,7 @@ namespace RavuAlHemio.OneWire.Adapter
         /// Thrown on a 1-Wire communication error with the adapter or if there are no devices on the 1-Wire Network.
         /// </exception>
         /// <exception cref="OneWireException">Thrown on a 1-Wire setup error with the adapter.</exception>
-        public abstract bool GetByte();
+        public abstract byte GetByte();
 
         /// <summary>
         /// Gets a block of data from the 1-Wire Network.
@@ -932,7 +914,8 @@ namespace RavuAlHemio.OneWire.Adapter
 
         /// <summary>
         /// Sets the duration for providing a program pulse on the 1-Wire Network. This method takes a time parameter
-        /// that indicates the program pulse length when <see cref="StartProgramPulse()"/> is called.
+        /// that indicates the program pulse length when <see cref="StartProgramPulse(PowerStateChangeCondition)"/> is
+        /// called.
         /// </summary>
         /// <remarks>
         /// Verify the result of <see cref="SupportsLevel(Level)"/> with <see cref="Level.Program"/> before calling
@@ -1031,7 +1014,7 @@ namespace RavuAlHemio.OneWire.Adapter
         /// <see cref="OneWireContainer"/>, contains a constructor accepting a <see cref="DSPortAdapter"/> and a
         /// <see cref="OneWireAddress"/> in that order).
         /// </exception>
-        public OneWireContainer GetDeviceContainer(OneWireAddress address)
+        public virtual OneWireContainer GetDeviceContainer(OneWireAddress address)
         {
             byte familyCode = (byte)(address.FamilyPortion & 0x7F);
             string familyString = familyCode.ToString("X2", CultureInfo.InvariantCulture);
@@ -1076,10 +1059,7 @@ namespace RavuAlHemio.OneWire.Adapter
         /// Constructs a <see cref="OneWireContainer"/> object for the most recently found device.
         /// </summary>
         /// <returns>A <see cref="OneWireContainer"/> for the device with the given address.</returns>
-        public OneWireContainer GetDeviceContainer()
-        {
-            return GetDeviceContainer(GetAddress());
-        }
+        public OneWireContainer DeviceContainer => GetDeviceContainer(GetAddress());
 
         /// <summary>
         /// Returns whether the device is not excluded by the user's filter (<see cref="TargetFamily(byte)"/>,

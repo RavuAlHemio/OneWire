@@ -40,13 +40,13 @@ namespace RavuAlHemio.OneWire.Utils
         /// <summary>
         /// CRC8 lookup table.
         /// </summary>
-        private static readonly byte[] lookupTable;
+        private static readonly byte[] LookupTable;
 
         static CRC8()
         {
-            lookupTable = new byte[256];
+            LookupTable = new byte[256];
 
-            for (int i = 0; i < lookupTable.Length; ++i)
+            for (int i = 0; i < LookupTable.Length; ++i)
             {
                 byte acc = (byte)i;
                 byte crc = 0;
@@ -65,7 +65,7 @@ namespace RavuAlHemio.OneWire.Utils
                     acc >>= 1;
                 }
 
-                lookupTable[i] = crc;
+                LookupTable[i] = crc;
             }
         }
 
@@ -80,7 +80,7 @@ namespace RavuAlHemio.OneWire.Utils
         /// <returns>The CRC8 calculated from <paramref name="data"/> and optionally <paramref name="seed"/>.</returns>
         public static byte Compute(byte data, byte seed = 0x00)
         {
-            return lookupTable[data ^ seed];
+            return LookupTable[data ^ seed];
         }
 
         /// <summary>

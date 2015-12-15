@@ -40,7 +40,7 @@ namespace RavuAlHemio.OneWire.Utils
         /// <summary>
         /// CRC16 lookup table.
         /// </summary>
-        private static readonly byte[] oddParity = {0, 1, 1, 0, 1, 0, 0, 1, 1, 0, 0, 1, 0, 1, 1, 0};
+        private static readonly byte[] OddParity = {0, 1, 1, 0, 1, 0, 0, 1, 1, 0, 0, 1, 0, 1, 1, 0};
 
         /// <summary>
         /// Calculate the CRC16 on the given data element, optionally based on a previous CRC value.
@@ -60,7 +60,7 @@ namespace RavuAlHemio.OneWire.Utils
             int index1 = (dat & 0x0F);
             int index2 = (dat >> 4);
 
-            if ((oddParity[index1] ^ oddParity[index2]) == 1)
+            if ((OddParity[index1] ^ OddParity[index2]) == 1)
             {
                 seed ^= 0xC001;
             }
