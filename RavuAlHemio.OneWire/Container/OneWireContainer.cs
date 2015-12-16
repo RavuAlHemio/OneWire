@@ -24,10 +24,14 @@
 // shall not be used except as stated in the Maxim Integrated Products
 // Branding Policy.
 //---------------------------------------------------------------------------
+
+using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
+using JetBrains.Annotations;
 using RavuAlHemio.OneWire.Adapter;
+using RavuAlHemio.OneWire.Utils;
 
 namespace RavuAlHemio.OneWire.Container
 {
@@ -39,6 +43,9 @@ namespace RavuAlHemio.OneWire.Container
     /// </summary>
     public class OneWireContainer
     {
+        protected static readonly IList<string> EmptyStringList = new ReadOnlyListWrapper<string>(new List<string>());
+        protected static readonly IList<IMemoryBank> EmptyMemoryBankList = new ReadOnlyListWrapper<IMemoryBank>(new List<IMemoryBank>());
+
         /// <summary>
         /// The requested communication speed.
         /// </summary>
@@ -54,9 +61,17 @@ namespace RavuAlHemio.OneWire.Container
         protected bool SpeedFallbackOK;
 
         /// <summary>
+        /// This class locks on <see cref="Lock"/> to ensure synchronized access while limiting external lock
+        /// manipulation; subclasses should too.
+        /// </summary>
+        [NotNull]
+        protected readonly object Lock;
+
+        /// <summary>
         /// A reference to the port adapter used to communicate with this 1-Wire device.
         /// </summary>
         /// <value>The port adapter used to communicate with this device.</value>
+        [NotNull]
         public DSPortAdapter Adapter { get; protected set; }
 
         /// <summary>
@@ -71,8 +86,14 @@ namespace RavuAlHemio.OneWire.Container
         /// </summary>
         /// <param name="adapter">The port adapter used for communication with the device.</param>
         /// <param name="address">The address of the device.</param>
-        public OneWireContainer(DSPortAdapter adapter, OneWireAddress address)
+        public OneWireContainer([NotNull] DSPortAdapter adapter, OneWireAddress address)
         {
+            if (adapter == null)
+            {
+                throw new ArgumentNullException(nameof(adapter));
+            }
+
+            Lock = new object();
             Adapter = adapter;
             Address = address;
 
@@ -94,7 +115,7 @@ namespace RavuAlHemio.OneWire.Container
         /// reads from this property.
         /// </remarks>
         /// <value>A collection of alternate names for this device type.</value>
-        public virtual IReadOnly<string> AlternateNames => new List<string>();
+        public virtual IList<string> AlternateNames => EmptyStringList;
 
         /// <summary>
         /// A short description of this 1-Wire device type.
@@ -135,6 +156,133 @@ namespace RavuAlHemio.OneWire.Container
         /// An enumeration of memory banks accessible by this device.
         /// </summary>
         /// <value>The memory banks.</value>
-        public virtual IEnumerable<IMemoryBank> MemoryBanks => Enumerable.Empty<IMemoryBank>();
+        public virtual IList<IMemoryBank> MemoryBanks => EmptyMemoryBankList;
+
+        /// <summary>
+        /// Shows if the 1-Wire device is present on the 1-Wire Network.
+        /// </summary>
+        /// <value><c>true</c> if the device is present; <c>false</c> otherwise.</value>
+        /// <exception cref="OneWireIOException">
+        /// Thrown if a 1-Wire communication error occurs, e.g. a read-back verification fails.
+        /// </exception>
+        /// <exception cref="OneWireException">Thrown if the adapter is not ready.</exception>
+        public virtual bool IsPresent
+        {
+            get { lock (Lock) { return Adapter.IsPresent(Address); } }
+        }
+
+        /// <summary>
+        /// Shows if the 1-Wire device is present on the 1-Wire Network and in an alarm state.
+        /// </summary>
+        /// <value><c>true</c> if the device is present and in an alarm state; <c>false</c> otherwise.</value>
+        /// <exception cref="OneWireIOException">
+        /// Thrown if a 1-Wire communication error occurs, e.g. a read-back verification fails.
+        /// </exception>
+        /// <exception cref="OneWireException">Thrown if the adapter is not ready.</exception>
+        public virtual bool IsAlarming
+        {
+            get { lock (Lock) { return Adapter.IsAlarming(Address); } }
+        }
+
+        /// <summary>
+        /// Performs the actual change to the speed chosen via <see cref="SetSpeed"/>, including falling back to a
+        /// slower speed if allowed and the communication fails. It suffices to call this method only once while the
+        /// device is still responding.
+        /// </summary>
+        public virtual void DoSpeed()
+        {
+            try
+            {
+                // check if device is present and speed already chosen
+                if (Adapter.IsPresent(Address) && PortSpeed == Adapter.Speed)
+                {
+                    // nothing to do
+                    return;
+                }
+            }
+            catch (OneWireIOException)
+            {
+                // ignore
+            }
+
+            if (PortSpeed == NetworkSpeed.Overdrive)
+            {
+                try
+                {
+                    // try to change device and speed to overdrive
+                    Adapter.Speed = NetworkSpeed.Regular;
+                    Adapter.Reset();
+                    Adapter.PutByte(0x69);
+                    Adapter.Speed = NetworkSpeed.Overdrive;
+                }
+                catch (OneWireIOException)
+                {
+                    // ignore
+                }
+
+                bool deviceIsPresent = false;
+                try
+                {
+                    deviceIsPresent = Adapter.IsPresent(Address);
+                }
+                catch (OneWireIOException)
+                {
+                    // ignore
+                }
+
+                // check if the new speed is OK
+                if (!deviceIsPresent)
+                {
+                    // nope; check if fallback is allowed
+                    if (SpeedFallbackOK)
+                    {
+                        Adapter.Speed = NetworkSpeed.Regular;
+                    }
+                    else
+                    {
+                        throw new OneWireIOException("Failed to get device to selected speed (overdrive)");
+                    }
+                }
+            }
+            else if (PortSpeed == NetworkSpeed.Regular || PortSpeed == NetworkSpeed.Flex)
+            {
+                Adapter.Speed = PortSpeed;
+            }
+            else
+            {
+                throw new OneWireIOException("Speed selected (hyperdrive) is not supported by this method");
+            }
+        }
+
+        public override int GetHashCode()
+        {
+            return Address.GetHashCode();
+        }
+
+        public override bool Equals(object obj)
+        {
+            if (obj == null)
+            {
+                return false;
+            }
+
+            if (obj == this)
+            {
+                return true;
+            }
+
+            if (obj.GetType() != this.GetType())
+            {
+                return false;
+            }
+
+            var other = (OneWireContainer) obj;
+            return (other.Address == this.Address);
+        }
+
+        public override string ToString()
+        {
+            return $"{Address} {Name}";
+        }
     }
 }

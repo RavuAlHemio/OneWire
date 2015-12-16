@@ -31,6 +31,8 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="Adapter\DumbAdapter.cs" />
+    <Compile Include="Adapter\OneWireIOException.cs" />
+    <Compile Include="Container\MemoryBankExtensions.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="OneWireException.cs" />
     <Compile Include="Adapter\DSPortAdapter.cs" />
@@ -43,6 +45,7 @@
     <Compile Include="Utils\Hex.cs" />
     <Compile Include="Adapter\NetworkSpeed.cs" />
     <Compile Include="Container\IMemoryBank.cs" />
+    <Compile Include="Utils\ReadOnlyListWrapper.cs" />
   </ItemGroup>
   <Import Project="$(MSBuildExtensionsPath32)\Microsoft\Portable\$(TargetFrameworkVersion)\Microsoft.Portable.CSharp.targets" />
   <ItemGroup>
