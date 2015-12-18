@@ -26,6 +26,7 @@
 //---------------------------------------------------------------------------
 
 using System.Collections.Generic;
+using RavuAlHemio.OneWire.Adapter;
 
 namespace RavuAlHemio.OneWire.Container
 {
@@ -106,17 +107,49 @@ namespace RavuAlHemio.OneWire.Container
         bool WriteVerification { get; set; }
 
         /// <summary>
-        /// Reads memory in this bank with no CRC checking (device or data). The resulting data from this API may or
-        /// may not be what is actually stored on the 1-Wire device. It is recommended that the data contain some kind
-        /// of checking, such as the CRC verification in <see cref="IPagedMemoryBank.ReadPagePacket"/>. Some memory
-        /// banks calculate and transmit a CRC automatically; these devices return <c>true</c> for
-        /// <see cref="IPagedMemoryBank.HasPageAutoCRC"/> and perform
+        /// Reads memory in this bank with no CRC checking (device or data).
+        /// <para>
+        /// The resulting data from this API may or may not be what is actually stored on the 1-Wire device. It is
+        /// recommended that the data contain some kind of checking, such as the CRC verification in
+        /// <see cref="IPagedMemoryBank.ReadPagePacket"/>. Some memory banks calculate and transmit a CRC
+        /// automatically; these devices return <c>true</c> for <see cref="IPagedMemoryBank.HasPageAutoCRC"/> and allow
+        /// a checked read via  <see cref="IPagedMemoryBank.ReadPageCRC"/>. If neither is an option, this method should
+        /// be called at least once to verify that the same data is read each time.
+        /// </para>
         /// </summary>
-        /// <param name="startAddress"></param>
-        /// <param name="readContinue"></param>
-        /// <param name="readBuf"></param>
-        /// <param name="offset"></param>
-        /// <param name="len"></param>
+        /// <param name="startAddress">The address at which to start reading.</param>
+        /// <param name="readContinue">
+        /// Whether this read is a direct continuation of the previous one and both reads are performed within the same
+        /// block of exclusive access to the port.
+        /// </param>
+        /// <param name="readBuf">The pre-allocated buffer into which to read the data.</param>
+        /// <param name="offset">
+        /// The offset from the beginning of <paramref name="readBuf"/> at which to store the result.
+        /// </param>
+        /// <param name="len">Number of bytes to read and store into <paramref name="readBuf"/>.</param>
+        /// <exception cref="OneWireIOException">
+        /// Thrown if a 1-Wire communication error occurs, e.g. a physical interruption or a new device broadcasting a
+        /// presence pulse.
+        /// </exception>
+        /// <exception cref="OneWireException">Thrown if the adapter is not ready.</exception>
         void Read(int startAddress, bool readContinue, IList<byte> readBuf, int offset, int len);
+
+        /// <summary>
+        /// Writes memory in this bank.
+        /// <para>
+        /// It is recommended that the data is stored with some kind of error checking to ensure data integrity on
+        /// read. For example, <see cref="IPagedMemoryBank.WritePagePacket"/> automatically wraps the data with length
+        /// and CRC information and can be read back with <see cref="IPagedMemoryBank.ReadPagePacket"/>.
+        /// </para>
+        /// </summary>
+        /// <remarks>
+        /// Note that when writing to a Write-Once memory bank, the resulting data is the bitwise AND of the already
+        /// stored value and the value to be written. If such a memory bank is written to again, the data that is read
+        /// back will therefore not equal the data that was transmitted to be written, and verification will fail.
+        /// This verification can be turned off by setting <see cref="WriteVerification"/> to <c>false</c>.
+        /// </remarks>
+        /// <param name="startAddress">The address at which to start writing.</param>
+        /// <param name="data">The data to write.</param>
+        void Write(int startAddress, IEnumerable<byte> data);
     }
 }

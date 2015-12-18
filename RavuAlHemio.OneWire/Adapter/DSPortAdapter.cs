@@ -42,32 +42,6 @@ namespace RavuAlHemio.OneWire.Adapter
     public abstract class DSPortAdapter
     {
         /// <summary>
-        /// 1-Wire Network level.
-        /// </summary>
-        public enum Level : byte
-        {
-            /// <summary>
-            /// Normal level (weak 5Volt pullup).
-            /// </summary>
-            Normal = 0,
-
-            /// <summary>
-            /// The power delivery level (strong 5Volt pullup).
-            /// </summary>
-            PowerDelivery = 1,
-
-            /// <summary>
-            /// Reset power level (strong pulldown to 0Volts, resets 1-Wire).
-            /// </summary>
-            Break = 2,
-
-            /// <summary>
-            /// EPROM programming level (strong 12Volt pullup).
-            /// </summary>
-            Program = 3
-        }
-
-        /// <summary>
         /// 1-Wire Network reset result.
         /// </summary>
         public enum ResetResult : int
@@ -116,70 +90,6 @@ namespace RavuAlHemio.OneWire.Adapter
         }
 
         /// <summary>
-        /// Duration used in delivering power to the 1-Wire.
-        /// </summary>
-        public enum PowerDeliveryDuration : int
-        {
-            /// <summary>
-            /// Provide power for a 1/2 second.
-            /// </summary>
-            /// <remarks>
-            /// Check using <see cref="SupportsLevel"/> with <see cref="Level.PowerDelivery"/>.
-            /// </remarks>
-            HalfSecond = 0,
-
-            /// <summary>
-            /// Provide power for 1 second.
-            /// </summary>
-            /// <remarks>
-            /// Check using <see cref="SupportsLevel"/> with <see cref="Level.PowerDelivery"/>.
-            /// </remarks>
-            OneSecond = 1,
-
-            /// <summary>
-            /// Provide power for 2 seconds.
-            /// </summary>
-            /// <remarks>
-            /// Check using <see cref="SupportsLevel"/> with <see cref="Level.PowerDelivery"/>.
-            /// </remarks>
-            TwoSeconds = 2,
-
-            /// <summary>
-            /// Provide power for 4 seconds.
-            /// </summary>
-            /// <remarks>
-            /// Check using <see cref="SupportsLevel"/> with <see cref="Level.PowerDelivery"/>.
-            /// </remarks>
-            FourSeconds = 3,
-
-            /// <summary>
-            /// Provide power until the device is no longer drawing significant power.
-            /// </summary>
-            /// <remarks>
-            /// Check using <see cref="CanDeliverSmartPower"/>.
-            /// </remarks>
-            SmartDone = 4,
-
-            /// <summary>
-            /// Provide power until <see cref="SetPowerNormal()"/> is called.
-            /// </summary>
-            /// <remarks>
-            /// Check using <see cref="SupportsLevel"/> with <see cref="Level.PowerDelivery"/>.
-            /// </remarks>
-            Infinite = 5,
-
-            /// <summary>
-            /// Current detect power delivery.
-            /// </summary>
-            CurrentDetect = 6,
-
-            /// <summary>
-            /// 480 µs power delivery.
-            /// </summary>
-            EPROM = 7
-        }
-
-        /// <summary>
         /// Dictionary to contain the user-replaced OneWireContainers.
         /// </summary>
         [NotNull]
@@ -188,12 +98,12 @@ namespace RavuAlHemio.OneWire.Adapter
         /// <summary>
         /// Families to include in search.
         /// </summary>
-        private ISet<byte> _include;
+        protected ISet<byte> SearchIncludeFamilies { get; set; }
 
         /// <summary>
         /// Families to exclude from search.
         /// </summary>
-        private ISet<byte> _exclude;
+        protected ISet<byte> SearchExcludeFamilies { get; set; }
 
         /// <summary>
         /// The name of the port adapter as a string. The "Adapter" is a device that connects to a "port" that allows
@@ -352,9 +262,9 @@ namespace RavuAlHemio.OneWire.Adapter
         /// </summary>
         /// <param name="level">The power level whose support to check.</param>
         /// <returns><c>true</c> if the supplied power level is supported; <c>false</c> otherwise.</returns>
-        public virtual bool SupportsLevel(Level level)
+        public virtual bool SupportsLevel(PowerLevel level)
         {
-            if (level == Level.Normal)
+            if (level == PowerLevel.Normal)
             {
                 return true;
             }
@@ -598,8 +508,8 @@ namespace RavuAlHemio.OneWire.Adapter
         /// </summary>
         public void TargetAllFamilies()
         {
-            _include = null;
-            _exclude = null;
+            SearchIncludeFamilies = null;
+            SearchExcludeFamilies = null;
         }
 
         /// <summary>
@@ -614,12 +524,12 @@ namespace RavuAlHemio.OneWire.Adapter
         /// <param name="family">The code of the family to target exclusively during searches.</param>
         public void TargetFamily(byte family)
         {
-            if (_include == null)
+            if (SearchIncludeFamilies == null)
             {
-                _include = new HashSet<byte>();
+                SearchIncludeFamilies = new HashSet<byte>();
             }
-            _include.Clear();
-            _include.Add(family);
+            SearchIncludeFamilies.Clear();
+            SearchIncludeFamilies.Add(family);
         }
 
         /// <summary>
@@ -635,12 +545,12 @@ namespace RavuAlHemio.OneWire.Adapter
         /// <param name="families">The codes of the families to target exclusively during searches.</param>
         public void TargetFamilies(IEnumerable<byte> families)
         {
-            if (_include == null)
+            if (SearchIncludeFamilies == null)
             {
-                _include = new HashSet<byte>();
+                SearchIncludeFamilies = new HashSet<byte>();
             }
-            _include.Clear();
-            _include.UnionWith(families);
+            SearchIncludeFamilies.Clear();
+            SearchIncludeFamilies.UnionWith(families);
         }
 
         /// <summary>
@@ -655,12 +565,12 @@ namespace RavuAlHemio.OneWire.Adapter
         /// <param name="family">The code of the family to ignore during searches.</param>
         public void ExcludeFamily(byte family)
         {
-            if (_include == null)
+            if (SearchIncludeFamilies == null)
             {
-                _include = new HashSet<byte>();
+                SearchIncludeFamilies = new HashSet<byte>();
             }
-            _include.Clear();
-            _include.Add(family);
+            SearchIncludeFamilies.Clear();
+            SearchIncludeFamilies.Add(family);
         }
 
         /// <summary>
@@ -676,12 +586,12 @@ namespace RavuAlHemio.OneWire.Adapter
         /// <param name="families">The codes of the families to ignore during searches.</param>
         public void ExcludeFamilies(IEnumerable<byte> families)
         {
-            if (_include == null)
+            if (SearchIncludeFamilies == null)
             {
-                _include = new HashSet<byte>();
+                SearchIncludeFamilies = new HashSet<byte>();
             }
-            _include.Clear();
-            _include.UnionWith(families);
+            SearchIncludeFamilies.Clear();
+            SearchIncludeFamilies.UnionWith(families);
         }
 
         /// <summary>
@@ -1053,17 +963,17 @@ namespace RavuAlHemio.OneWire.Adapter
         {
             byte familyCode = address.FamilyPortion;
 
-            if (_exclude != null)
+            if (SearchExcludeFamilies != null)
             {
-                if (_exclude.Contains(familyCode))
+                if (SearchExcludeFamilies.Contains(familyCode))
                 {
                     return false;
                 }
             }
 
-            if (_include != null)
+            if (SearchIncludeFamilies != null)
             {
-                return _include.Contains(familyCode);
+                return SearchIncludeFamilies.Contains(familyCode);
             }
 
             return true;

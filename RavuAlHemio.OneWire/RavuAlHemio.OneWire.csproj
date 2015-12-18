@@ -32,6 +32,8 @@
   <ItemGroup>
     <Compile Include="Adapter\DumbAdapter.cs" />
     <Compile Include="Adapter\OneWireIOException.cs" />
+    <Compile Include="Adapter\PowerDeliveryDuration.cs" />
+    <Compile Include="Adapter\PowerLevel.cs" />
     <Compile Include="Container\MemoryBankExtensions.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="OneWireException.cs" />

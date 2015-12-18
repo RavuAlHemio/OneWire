@@ -90,7 +90,7 @@ namespace RavuAlHemio.OneWire.Adapter
         /// To make sure that a wide variety of applications can use it, <see cref="DumbAdapter"/>'s implementation of
         /// <see cref="SupportsLevel"/> always returns <c>true</c>.
         /// </summary>
-        public override bool SupportsLevel(Level level)
+        public override bool SupportsLevel(PowerLevel level)
         {
             return true;
         }
