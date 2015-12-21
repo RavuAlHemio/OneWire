@@ -25,6 +25,9 @@
 //---------------------------------------------------------------------------
 
 using System;
+using System.Collections.Generic;
+using System.Linq;
+using JetBrains.Annotations;
 
 namespace RavuAlHemio.OneWire.Utils
 {
@@ -55,7 +58,24 @@ namespace RavuAlHemio.OneWire.Utils
         /// Thrown if <paramref name="length"/> is less than 0.
         /// </exception>
         public BitStringBuffer(int length)
+            : this(Enumerable.Repeat((byte)0, length / 8 + 1), length)
         {
+        }
+
+        /// <summary>
+        /// Constructs a new bit string buffer with a copy of the given data.
+        /// </summary>
+        /// <param name="initialBits">The initial bits of the bit string.</param>
+        /// <param name="length">The length of the bit string, in bits.</param>
+        /// <exception cref="ArgumentOutOfRangeException">
+        /// Thrown if <paramref name="length"/> is less than 0.
+        /// </exception>
+        public BitStringBuffer([NotNull] IEnumerable<byte> initialBits, int length)
+        {
+            if (initialBits == null)
+            {
+                throw new ArgumentNullException(nameof(initialBits));
+            }
             if (length < 0)
             {
                 throw new ArgumentOutOfRangeException(nameof(length), "length less than zero");
@@ -67,7 +87,7 @@ namespace RavuAlHemio.OneWire.Utils
                 ++bufLen;
             }
 
-            Buffer = new byte[bufLen];
+            Buffer = initialBits.Take(bufLen).ToArray();
             Length = length;
         }
 

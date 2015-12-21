@@ -7,9 +7,9 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RavuAlHemio.OneWire", "Ravu
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "OneWireTests", "OneWireTests\OneWireTests.csproj", "{53A31BB9-A09A-4788-A55B-B33459DCC82F}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "OneWireUSBDriver", "OneWireUSBDriver\OneWireUSBDriver.csproj", "{907E3FC5-D87C-4FFA-B3D3-908E84B2BF62}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RavuAlHemio.OneWire.USBDriver", "RavuAlHemio.OneWire.USBDriver\RavuAlHemio.OneWire.USBDriver.csproj", "{907E3FC5-D87C-4FFA-B3D3-908E84B2BF62}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "OneWireSerialDriver", "OneWireSerialDriver\OneWireSerialDriver.csproj", "{CC36A56F-3D0A-4986-9724-12C49F790D52}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RavuAlHemio.OneWire.SerialDriver", "RavuAlHemio.OneWire.SerialDriver\RavuAlHemio.OneWire.SerialDriver.csproj", "{CC36A56F-3D0A-4986-9724-12C49F790D52}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

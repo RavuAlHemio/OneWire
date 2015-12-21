@@ -7,8 +7,8 @@
     <ProjectGuid>{CC36A56F-3D0A-4986-9724-12C49F790D52}</ProjectGuid>
     <OutputType>Library</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
-    <RootNamespace>OneWireSerialDriver</RootNamespace>
-    <AssemblyName>OneWireSerialDriver</AssemblyName>
+    <RootNamespace>RavuAlHemio.OneWire.SerialDriver</RootNamespace>
+    <AssemblyName>RavuAlHemio.OneWire.SerialDriver</AssemblyName>
     <TargetFrameworkVersion>v4.6</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
   </PropertyGroup>
@@ -33,7 +33,17 @@
     <Reference Include="System" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="OneWireState.cs" />
+    <Compile Include="Internals\OneWireSerialState.cs" />
+    <Compile Include="Internals\AdapterBaud.cs" />
+    <Compile Include="Internals\SampleOffsetTime.cs" />
+    <Compile Include="Internals\WriteOneLowTime.cs" />
+    <Compile Include="Internals\ProgramPulseTime5.cs" />
+    <Compile Include="Internals\ProgramPulseTime12.cs" />
+    <Compile Include="Internals\RawPacket.cs" />
+    <Compile Include="Internals\SerialAdapterParameterSettings.cs" />
+    <Compile Include="Internals\SerialAdapterState.cs" />
+    <Compile Include="Internals\SerialPacketBuilder.cs" />
+    <Compile Include="Internals\SlewRate.cs" />
     <Compile Include="SerialPortAdapter.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
